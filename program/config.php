@@ -3,6 +3,6 @@ return [
     'host'       => 'localhost',
     'rdms'       => 'mysql',
     'db'         => 'expeditions_db',
-    'guest_user' => 'guest',
-    'guest_pass' => 'guest',
+    'guest_user' => getenv('DB_GUEST_USER') ?: 'guest',
+    'guest_pass' => getenv('DB_GUEST_PASS') ?: 'guest',
 ];

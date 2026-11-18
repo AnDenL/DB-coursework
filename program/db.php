@@ -5,14 +5,61 @@ class DB {
     private static ?PDO $instance  = null;
     private static ?bool $writable = null;
 
-    public static function init_session(int $ttl = 900): void {
-        if (PHP_SAPI === 'cli' || headers_sent()) {
-            return;
+    public static function encrypt_session_pass(string $pass): string {
+        if ($pass === '') {
+            return '';
         }
+        $key    = random_bytes(32);
+        $iv     = random_bytes(12);
+        $tag    = '';
+        $cipher = openssl_encrypt($pass, 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $iv, $tag);
+
+        setcookie('db_key', base64_encode($key), [
+            'httponly' => true,
+            'samesite' => 'Lax',
+            'path'     => '/',
+        ]);
+
+        return base64_encode($iv . $tag . $cipher);
+    }
+
+    private static function decrypt_session_pass(): string {
+        $raw    = (string)($_SESSION['db_pass'] ?? '');
+        $keyB64 = (string)($_COOKIE['db_key'] ?? '');
+        if ($raw === '' || $keyB64 === '') {
+            return '';
+        }
+        $blob = base64_decode($raw, true);
+        $key  = base64_decode($keyB64, true);
+        if ($blob === false || $key === false || strlen($blob) < 28 || strlen($key) !== 32) {
+            return '';
+        }
+        $iv     = substr($blob, 0, 12);
+        $tag    = substr($blob, 12, 16);
+        $cipher = substr($blob, 28);
+        $plain  = openssl_decrypt($cipher, 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $iv, $tag);
+        return $plain === false ? '' : $plain;
+    }
+
+    public static function verify_csrf(): void {
+        $token = (string)($_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
+        if ($token === '' || !hash_equals((string)($_SESSION['csrf_token'] ?? ''), $token)) {
+            http_response_code(403);
+            exit('403 Forbidden: Invalid CSRF token');
+        }
+    }
+
+    public static function init_session(): void {
         if (session_status() === PHP_SESSION_NONE) {
-            ini_set('session.cookie_httponly', '1');
-            ini_set('session.cookie_samesite', 'Lax');
+            session_set_cookie_params([
+                'httponly' => true,
+                'samesite' => 'Lax',
+                'path'     => '/',
+            ]);
             session_start();
+        }
+        if (empty($_SESSION['csrf_token'])) {
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
         }
         if (!empty($_SESSION['db_user'])) {
             $last = (int)($_SESSION['last_activity'] ?? 0);
@@ -47,7 +94,7 @@ class DB {
 
             if (!empty($_SESSION['db_user'])) {
                 try {
-                    self::$instance = self::connect((string)$_SESSION['db_user'], (string)($_SESSION['db_pass'] ?? ''));
+                    self::$instance = self::connect((string)$_SESSION['db_user'], self::decrypt_session_pass());
                     return self::$instance;
                 } catch (PDOException) {
                     unset($_SESSION['db_user'], $_SESSION['db_pass']);

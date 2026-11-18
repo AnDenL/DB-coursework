@@ -2,6 +2,10 @@
 require_once 'helpers.php';
 require_once 'sql.php';
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    DB::verify_csrf();
+}
+
 $router->add('GET', '/', function () {
     $pageTitle = "Home";
     include 'views/home.php';
@@ -199,7 +203,7 @@ $router->add('POST', '/login', function () {
         DB::connect($user, $pass);
         session_regenerate_id(true);
         $_SESSION['db_user']       = $user;
-        $_SESSION['db_pass']       = $pass;
+        $_SESSION['db_pass']       = DB::encrypt_session_pass($pass);
         $_SESSION['last_activity'] = time();
         redirect($back);
     } catch (PDOException) {
