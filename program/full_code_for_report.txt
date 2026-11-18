@@ -4,12 +4,37 @@
 <?php
 declare(strict_types=1);
 
+ini_set('display_errors', '0');
+
+if (PHP_SAPI !== 'cli' && session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 require_once "db.php";
+DB::init_session(900);
 require_once "router.php";
 
-$path    = (string)(parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/');
+$renderError = function (Throwable $e): void {
+    if (!headers_sent()) {
+        http_response_code($e instanceof PDOException ? 503 : 500);
+    }
+    $pageTitle    = 'Помилка системи';
+    $errorTitle   = $e instanceof PDOException ? 'Помилка бази даних' : 'Помилка виконання запиту';
+    $errorMessage = ($e instanceof RuntimeException)
+        ? $e->getMessage()
+        : 'Сервіс тимчасово недоступний або виникла внутрішня помилка. Перевірте з’єднання з БД.';
+    include __DIR__ . '/views/error.php';
+    exit;
+};
 
-$router->route($_SERVER['REQUEST_METHOD'] ?? 'GET', $path);
+set_exception_handler($renderError);
+
+try {
+    $path = (string)(parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/');
+    $router->route($_SERVER['REQUEST_METHOD'] ?? 'GET', $path);
+} catch (Throwable $e) {
+    $renderError($e);
+}
 
 
 =========================================
@@ -18,7 +43,48 @@ $router->route($_SERVER['REQUEST_METHOD'] ?? 'GET', $path);
 <!DOCTYPE html>
 <?php include 'head.php'; ?>
 <body>
-<?php include 'menu.php'; ?>
+    <?php
+    include 'menu.php';
+    $dbc  = DB::get_connection();
+    $last = $dbc->query("
+        SELECT e.id, e.title, e.start_date, e.end_date, r.name AS region_name, r.photo_path
+        FROM expeditions e
+        LEFT JOIN regions r ON r.id = e.region_id
+        ORDER BY e.start_date DESC, e.id DESC
+        LIMIT 1
+    ")->fetch();
+    $bgUrl = !empty($last['photo_path']) ? '/' . ltrim((string)$last['photo_path'], '/') : '';
+    ?>
+
+    <div class="container">
+        <div class="hero-card" style="<?= $bgUrl ? "--hero-bg: url('" . htmlspecialchars($bgUrl, ENT_QUOTES) . "')" : '' ?>">
+            <div class="hero-overlay">
+                <h1 class="page-title" style="margin-bottom: 0.5rem;">ІС «Етнографічні експедиції»</h1>
+                <p style="max-width: 680px; opacity: 0.92; margin-bottom: 1.25rem;">
+                    Інформаційна система обліку польових експедицій, регіонів дослідження, наукового складу, спорядження та знайдених артефактів.
+                </p>
+
+                <?php if ($last): ?>
+                    <div style="margin-bottom: 1.25rem; font-size: 0.92rem; opacity: 0.95;">
+                        Остання експедиція: <strong><?= htmlspecialchars((string)$last['title']) ?></strong>
+                        <?php if (!empty($last['region_name'])): ?>
+                            — регіон «<?= htmlspecialchars((string)$last['region_name']) ?>»
+                        <?php endif; ?>
+                        (<?= htmlspecialchars((string)($last['start_date'] ?? '—')) ?> — <?= htmlspecialchars((string)($last['end_date'] ?? 'триває')) ?>)
+                    </div>
+                <?php endif; ?>
+
+                <div style="display: flex; gap: 0.6rem; flex-wrap: wrap;">
+                    <a href="/expeditions" class="btn btn-primary">Експедиції</a>
+                    <a href="/regions" class="btn btn-secondary">Регіони</a>
+                    <a href="/researchers" class="btn btn-secondary">Дослідники</a>
+                    <a href="/equipment" class="btn btn-secondary">Спорядження</a>
+                    <a href="/artifacts" class="btn btn-secondary">Артефакти</a>
+                    <a href="/reports" class="btn btn-secondary">Аналітика</a>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
 
@@ -26,7 +92,11 @@ $router->route($_SERVER['REQUEST_METHOD'] ?? 'GET', $path);
 =========================================
 ФАЙЛ: ./views/menu.php
 =========================================
-<?php global $path; ?>
+<?php
+$currUri  = (string)($_SERVER['REQUEST_URI'] ?? '/expeditions');
+$loggedIn = DB::is_logged_in();
+$canWrite = DB::can_write();
+?>
 <div class="navbar">
     <nav>
         <div class="nav-links">
@@ -39,7 +109,37 @@ $router->route($_SERVER['REQUEST_METHOD'] ?? 'GET', $path);
             <a href="/reports"     class="nav-link">Reports</a>
         </div>
     </nav>
+
+    <div class="nav-auth">
+        <span class="db-badge <?= $canWrite ? 'rw' : 'ro' ?>">
+            DB: <?= htmlspecialchars(DB::current_user()) ?> (<?= $canWrite ? 'RW' : 'SELECT' ?>)
+        </span>
+
+        <?php if (!empty($_SESSION['flash_warning'])): ?>
+            <div class="container" style="margin-bottom: 0;">
+                <div class="card" style="border-color: var(--warning); color: var(--warning); font-weight: 500; margin-bottom: 0;">
+                    <?= htmlspecialchars((string)$_SESSION['flash_warning']) ?>
+                </div>
+            </div>
+            <?php unset($_SESSION['flash_warning']); ?>
+        <?php endif; ?>
+
+        <?php if ($loggedIn): ?>
+            <form method="POST" action="/logout" style="margin:0;">
+                <input type="hidden" name="_redirect" value="<?= htmlspecialchars($currUri) ?>">
+                <button type="submit" class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.85rem;">Вийти</button>
+            </form>
+        <?php else: ?>
+            <form method="POST" action="/login" class="nav-login-form">
+                <input type="hidden" name="_redirect" value="<?= htmlspecialchars($currUri) ?>">
+                <input type="text" name="db_user" placeholder="Логін БД" class="nav-input" required>
+                <input type="password" name="db_pass" placeholder="Пароль" class="nav-input">
+                <button type="submit" class="btn btn-primary" style="padding: 0.35rem 0.75rem; font-size: 0.85rem;">Увійти</button>
+            </form>
+        <?php endif; ?>
+    </div>
 </div>
+
 
 =========================================
 ФАЙЛ: ./views/404.php
@@ -62,7 +162,7 @@ $router->route($_SERVER['REQUEST_METHOD'] ?? 'GET', $path);
     <?php
         include 'menu.php';
         $basePath = strtok($_SERVER['REQUEST_URI'] ?? '/', '?');
-        $headers  = array_values(array_diff(array_keys($result), ['__id']));
+        $headers = array_values(array_diff(array_keys($result), ['__id', '__sort']));
         $rowCount = !empty($headers) ? count($result[$headers[0]]) : 0;
         $dbc      = DB::get_connection();
     ?>
@@ -71,8 +171,13 @@ $router->route($_SERVER['REQUEST_METHOD'] ?? 'GET', $path);
         <div class="page-header">
             <h1 class="page-title"><?= htmlspecialchars($pageTitle) ?></h1>
             <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
-                <?php if (!$showForm): ?>
+                <?php if (!$showForm && DB::can_write()): ?>
                     <a href="<?= htmlspecialchars($basePath) ?>?create=1" class="btn btn-primary">+ Додати запис</a>
+                <?php endif; ?>
+                <?php if ($showForm && !DB::can_write()): ?>
+                    <div class="card" style="border-color: var(--warning); color: var(--warning); font-weight: 500;">
+                        Режим лише для перегляду: увійдіть у шапці під обліковим записом із правами запису, щоб створювати або змінювати записи.
+                    </div>
                 <?php endif; ?>
             </div>
         </div>
@@ -83,7 +188,7 @@ $router->route($_SERVER['REQUEST_METHOD'] ?? 'GET', $path);
             </div>
         <?php endif; ?>
 
-        <?php if ($showForm): ?>
+        <?php if ($showForm && DB::can_write()): ?>
             <?php include 'sheets/form.php'; ?>
         <?php endif; ?>
 
@@ -104,6 +209,11 @@ $router->route($_SERVER['REQUEST_METHOD'] ?? 'GET', $path);
                     </select>
                 <?php endif; ?>
             <?php endforeach; ?>
+
+            <?php if (!empty($_GET['sort'])): ?>
+                <input type="hidden" name="sort" value="<?= htmlspecialchars((string)$_GET['sort']) ?>">
+                <input type="hidden" name="dir" value="<?= htmlspecialchars((string)($_GET['dir'] ?? 'ASC')) ?>">
+            <?php endif; ?>
 
             <button type="submit" class="btn btn-primary">Знайти</button>
             <?php if (!empty(array_diff_key($_GET, ['create' => 1, 'edit' => 1, 'error' => 1]))): ?>
@@ -160,13 +270,39 @@ echo '</tbody>';
 =========================================
 ФАЙЛ: ./views/sheets/column_head.php
 =========================================
-<th><?= htmlspecialchars((string)($colName ?? '—')) ?></th>
+<?php
+$sortField = $result['__sort'][$colName] ?? null;
+?>
+<th>
+    <?php if ($sortField !== null): ?>
+        <?php
+        $isActive = ($_GET['sort'] ?? '') === $sortField;
+        $currDir  = strtoupper((string)($_GET['dir'] ?? 'ASC')) === 'DESC' ? 'DESC' : 'ASC';
+        $nextDir  = ($isActive && $currDir === 'ASC') ? 'DESC' : 'ASC';
+        $query    = array_merge(
+            array_diff_key($_GET, ['create' => 1, 'edit' => 1, 'error' => 1]),
+            ['sort' => $sortField, 'dir' => $nextDir]
+        );
+        $sortUrl  = ($actionBase ?? $basePath) . '?' . http_build_query($query);
+        $arrow    = $isActive ? ($currDir === 'ASC' ? '▲' : '▼') : '⇅';
+        ?>
+        <a href="<?= htmlspecialchars($sortUrl) ?>" class="sort-link <?= $isActive ? 'active' : '' ?>">
+            <span><?= htmlspecialchars((string)($colName ?? '—')) ?></span>
+            <span class="sort-arrow"><?= $arrow ?></span>
+        </a>
+    <?php else: ?>
+        <?= htmlspecialchars((string)($colName ?? '—')) ?>
+    <?php endif; ?>
+</th>
 
 
 =========================================
 ФАЙЛ: ./views/sheets/table.php
 =========================================
-<?php $actionBase = $tableBasePath ?? $basePath; ?>
+<?php
+$actionBase = $tableBasePath ?? $basePath;
+$canWrite = DB::can_write();
+?>
 
 <div class="table-wrap">
 <table class="table">
@@ -175,7 +311,7 @@ echo '</tbody>';
             <?php foreach ($headers as $colName) {
                 include 'column_head.php';
             } ?>
-            <?php if (isset($result['__id'])): ?>
+            <?php if (isset($result['__id']) && $canWrite): ?>
                 <th>Дії</th>
             <?php endif; ?>
         </tr>
@@ -187,7 +323,7 @@ echo '</tbody>';
                 <?php foreach ($headers as $colName) {
                     include 'block.php';
                 } ?>
-                <?php if (isset($result['__id'])): ?>
+                <?php if (isset($result['__id']) && $canWrite): ?>
                     <td style="white-space: nowrap;">
                         <a href="<?= htmlspecialchars($actionBase) ?>?edit=<?= urlencode($rowId) ?>" class="btn btn-secondary">Редагувати</a>
                         <form method="POST" action="<?= htmlspecialchars($actionBase) ?>/delete?id=<?= urlencode($rowId) ?>" style="display:inline;"
@@ -342,19 +478,22 @@ $maxMb     = round($maxBytes / 1024 / 1024, 1);
                             </label>
 
                             <?php if ($isEnum): ?>
-                                <select name="<?= htmlspecialchars($field) ?>[<?= $tid ?>][extra]" class="form-control pivot-extra">
-                                    <?php foreach ($enumOpts as $opt): ?>
-                                        <option value="<?= htmlspecialchars($opt) ?>" <?= (string)$extraVal === (string)$opt ? 'selected' : '' ?>>
-                                            <?= htmlspecialchars($opt) ?>
-                                        </option>
+                                <select name="<?= htmlspecialchars($field) ?>[<?= $tid ?>][extra]"
+                                    class="form-control pivot-extra"
+                                    <?= $isChecked ? '' : 'hidden disabled' ?>>
+                                <?php foreach ($enumOpts as $opt): ?>
+                                    <option value="<?= htmlspecialchars($opt) ?>" <?= (string)$extraVal === (string)$opt ? 'selected' : '' ?>>
+                                        <?= htmlspecialchars($opt) ?>
+                                    </option>
                                     <?php endforeach; ?>
                                 </select>
                             <?php else: ?>
                                 <input type="number"
-                                       name="<?= htmlspecialchars($field) ?>[<?= $tid ?>][extra]"
-                                       value="<?= htmlspecialchars((string)$extraVal) ?>"
-                                       min="1" max="10000" step="1"
-                                       class="form-control pivot-extra">
+                                    name="<?= htmlspecialchars($field) ?>[<?= $tid ?>][extra]"
+                                    value="<?= htmlspecialchars((string)$extraVal) ?>"
+                                    min="1" max="10000" step="1"
+                                    class="form-control pivot-extra"
+                                    <?= $isChecked ? '' : 'hidden disabled' ?>>
                             <?php endif; ?>
                         </div>
                     <?php endforeach; ?>
@@ -490,12 +629,23 @@ document.querySelectorAll('.pivot-box').forEach(box => {
     };
 
     box.querySelectorAll('.pivot-row').forEach(row => {
-        const cb = row.querySelector('input[type="checkbox"]');
-        const extra = row.querySelector('.pivot-extra');
-        extra?.addEventListener('input', () => { if (cb) cb.checked = true; recalc(); });
-        extra?.addEventListener('change', () => { if (cb) cb.checked = true; recalc(); });
-        cb?.addEventListener('change', recalc);
-    });
+          const cb = row.querySelector('input[type="checkbox"]');
+          const extra = row.querySelector('.pivot-extra');
+  
+          const syncRow = () => {
+              if (!extra || !cb) return;
+              extra.hidden = !cb.checked;
+              extra.disabled = !cb.checked;
+          };
+  
+          cb?.addEventListener('change', () => {
+              syncRow();
+              recalc();
+          });
+          extra?.addEventListener('input', recalc);
+          extra?.addEventListener('change', recalc);
+          syncRow();
+      });
 
     document.querySelector('input[name="budget"]')?.addEventListener('input', recalc);
     recalc();
@@ -574,7 +724,7 @@ echo '</thead>';
 
         <div class="card">
             <h2 class="card-title">1. Результативність експедицій та оціночна вартість знахідок</h2>
-            <table class="table">
+            <table class="table-wrap">
                 <thead>
                     <tr>
                         <th>Експедиція</th>
@@ -600,7 +750,7 @@ echo '</thead>';
 
         <div class="card">
             <h2 class="card-title">2. Залученість наукових співробітників</h2>
-            <table class="table">
+            <table class="table-wrap">
                 <thead>
                     <tr>
                         <th>ПІБ дослідника</th>
@@ -622,7 +772,7 @@ echo '</thead>';
 
         <div class="card">
             <h2 class="card-title">3. Використання та вартість польового спорядження</h2>
-            <table class="table">
+            <table class="table-wrap">
                 <thead>
                     <tr>
                         <th>Найменування</th>
@@ -649,25 +799,137 @@ echo '</thead>';
 
 
 =========================================
+ФАЙЛ: ./views/error.php
+=========================================
+<!DOCTYPE html>
+<?php $pageTitle = $pageTitle ?? 'Помилка'; ?>
+<?php include 'head.php'; ?>
+<body>
+    <div class="navbar">
+        <div class="nav-links">
+            <a href="/" class="nav-link">Home</a>
+            <a href="/expeditions" class="nav-link">Expeditions</a>
+        </div>
+    </div>
+
+    <div class="container" style="max-width: 680px;">
+        <div class="card" style="border-color: var(--danger);">
+            <h1 class="card-title" style="color: var(--danger); font-size: 1.3rem;">
+                <?= htmlspecialchars($errorTitle ?? 'Виникла помилка під час обробки запиту') ?>
+            </h1>
+            <p style="margin-bottom: 1.25rem; color: var(--text);">
+                <?= htmlspecialchars($errorMessage ?? 'Спробуйте оновити сторінку або повернутися на головну.') ?>
+            </p>
+            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+                <a href="javascript:location.reload()" class="btn btn-primary">Оновити сторінку</a>
+                <a href="/" class="btn btn-secondary">На головну</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+
+
+=========================================
 ФАЙЛ: ./db.php
 =========================================
 <?php
 declare(strict_types=1);
 
 class DB {
-    private static ?PDO $instance = null;
+    private static ?PDO $instance  = null;
+    private static ?bool $writable = null;
+
+    public static function init_session(int $ttl = 900): void {
+        if (PHP_SAPI === 'cli' || headers_sent()) {
+            return;
+        }
+        if (session_status() === PHP_SESSION_NONE) {
+            ini_set('session.cookie_httponly', '1');
+            ini_set('session.cookie_samesite', 'Lax');
+            session_start();
+        }
+        if (!empty($_SESSION['db_user'])) {
+            $last = (int)($_SESSION['last_activity'] ?? 0);
+            if ($last > 0 && (time() - $last) > $ttl) {
+                $_SESSION = [];
+                session_regenerate_id(true);
+                $_SESSION['flash_warning'] = 'Сесію завершено через 15 хвилин неактивності (виконано автоматичний вихід).';
+                return;
+            }
+            $_SESSION['last_activity'] = time();
+        }
+    }
+
+    private static function ensure_session(): void {
+        self::init_session();
+    }
+
+    public static function connect(string $user, string $pass): PDO {
+        $params = require __DIR__ . '/config.php';
+        $dsn    = "{$params['rdms']}:host={$params['host']};dbname={$params['db']};charset=utf8mb4";
+        return new PDO($dsn, $user, $pass, [
+            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES   => false,
+        ]);
+    }
 
     public static function get_connection(): PDO {
         if (self::$instance === null) {
-            $params = require __DIR__ . "/config.php";
-            #$dsn = "{$params['rdms']}:host={$params['host']};dbname={$params['db']};charset=utf8mb4";
-            self::$instance = new PDO("{$params['rdms']}:host={$params['host']};dbname={$params['db']}", $params['user'], $params['pass'], [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                PDO::ATTR_EMULATE_PREPARES => false,
-            ]);
+            self::ensure_session();
+            $params = require __DIR__ . '/config.php';
+
+            if (!empty($_SESSION['db_user'])) {
+                try {
+                    self::$instance = self::connect((string)$_SESSION['db_user'], (string)($_SESSION['db_pass'] ?? ''));
+                    return self::$instance;
+                } catch (PDOException) {
+                    unset($_SESSION['db_user'], $_SESSION['db_pass']);
+                }
+            }
+
+            try {
+                self::$instance = self::connect($params['guest_user'], $params['guest_pass']);
+            } catch (PDOException) {
+                throw new RuntimeException('Не вдалося підключитися до бази даних. Перевірте роботу сервера MariaDB та права гостьового облікового запису.');
+            }
         }
         return self::$instance;
+    }
+
+    public static function is_logged_in(): bool {
+        self::ensure_session();
+        $params = require __DIR__ . '/config.php';
+        return !empty($_SESSION['db_user']) && $_SESSION['db_user'] !== $params['guest_user'];
+    }
+
+    public static function current_user(): string {
+        self::ensure_session();
+        $params = require __DIR__ . '/config.php';
+        return (string)($_SESSION['db_user'] ?? $params['guest_user']);
+    }
+
+    public static function can_write(): bool {
+        if (self::$writable !== null) {
+            return self::$writable;
+        }
+        try {
+            $grants = self::get_connection()
+                ->query('SHOW GRANTS FOR CURRENT_USER()')
+                ->fetchAll(PDO::FETCH_COLUMN);
+
+            self::$writable = false;
+            foreach ($grants as $grant) {
+                if (preg_match('/^GRANT\s+.*?\b(ALL PRIVILEGES|INSERT|UPDATE|DELETE)\b.*?\s+ON\s+/i', (string)$grant)) {
+                    self::$writable = true;
+                    break;
+                }
+            }
+        } catch (Throwable) {
+            self::$writable = false;
+        }
+        return self::$writable;
     }
 }
 
@@ -677,11 +939,11 @@ class DB {
 =========================================
 <?php
 return [
-    'host' => 'localhost',
-    'user' => 'andenl',
-    'pass' => '58327',
-    'rdms' => 'mysql',
-    'db'   => 'expeditions_db',
+    'host'       => 'localhost',
+    'rdms'       => 'mysql',
+    'db'         => 'expeditions_db',
+    'guest_user' => 'guest',
+    'guest_pass' => 'guest',
 ];
 
 
@@ -788,6 +1050,11 @@ $tables = [
                 FROM expedition_equipment ee
                 JOIN equipment eq ON eq.id = ee.equipment_id
                 WHERE ee.expedition_id = expeditions.id
+            ", null, "
+                SELECT COALESCE(SUM(ee.count * eq.estimated_cost), 0)
+                FROM expedition_equipment ee
+                JOIN equipment eq ON eq.id = ee.equipment_id
+                WHERE ee.expedition_id = expeditions.id
             "),
             'start_date'      => 'Початок',
             'end_date'        => 'Кінець',
@@ -880,6 +1147,9 @@ foreach ($tables as $table => $cfg) {
             save_row($table, $pk, $schemaColumns, $_POST, $editId);
             redirect("/$table");
         } catch (Throwable $e) {
+            if ($e instanceof PDOException && ($e->errorInfo[1] ?? 0) === 1142) {
+                redirect("/$table", 'У вас немає прав для зміни даних: поточний користувач має права лише на читання.');
+            }
             $record    = $_POST;
             $showForm  = true;
             $formError = $e->getMessage();
@@ -894,11 +1164,50 @@ foreach ($tables as $table => $cfg) {
         try {
             delete_row($table, $pk, (string)($_GET['id'] ?? ''));
             redirect($returnTo);
-        } catch (PDOException) {
+        } catch (PDOException $e) {
+            if (($e->errorInfo[1] ?? 0) === 1142) {
+                redirect($returnTo, 'У вас немає прав для видалення даних: поточний користувач має права лише на читання.');
+            }
             redirect($returnTo, 'Неможливо видалити запис, оскільки на нього посилаються інші таблиці.');
         }
     });
 }
+
+$router->add('POST', '/login', function () {
+    if (session_status() === PHP_SESSION_NONE) session_start();
+    $cfg  = require __DIR__ . '/config.php';
+    $user = trim((string)($_POST['db_user'] ?? ''));
+    $pass = (string)($_POST['db_pass'] ?? '');
+    $back = safe_return_url($_POST['_redirect'] ?? null, '/expeditions');
+
+    if ($user === '') {
+        redirect($back, 'Вкажіть ім’я користувача.');
+    }
+
+    if ($user === $cfg['guest_user']) {
+        unset($_SESSION['db_user'], $_SESSION['db_pass']);
+        redirect($back, 'Bruh ви вже перебуваєте в гостьовому режимі.');
+    }
+
+    try {
+        DB::connect($user, $pass);
+        session_regenerate_id(true);
+        $_SESSION['db_user']       = $user;
+        $_SESSION['db_pass']       = $pass;
+        $_SESSION['last_activity'] = time();
+        redirect($back);
+    } catch (PDOException) {
+        redirect($back, 'Невірний логін або пароль.');
+    }
+});
+
+$router->add('POST', '/logout', function () {
+    if (session_status() === PHP_SESSION_NONE) session_start();
+    $back = safe_return_url($_POST['_redirect'] ?? null, '/expeditions');
+    $_SESSION = [];
+    session_destroy();
+    redirect($back);
+});
 
 
 =========================================
@@ -918,6 +1227,7 @@ readonly class Subquery {
         public string $label,
         public string $sql,
         public ?string $table = null,
+        public ?string $sortSql = null,
     ) {}
 }
 
@@ -1085,7 +1395,6 @@ body {
   line-height: 1.5;
 }
 
-/* Навігація */
 .navbar {
   background-color: #1e293b;
   color: #fff;
@@ -1122,6 +1431,51 @@ body {
 .nav-link.active {
   background-color: #334155;
   color: #fff;
+}
+
+.nav-auth {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.nav-login-form {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.nav-input {
+  padding: 0.32rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid #475569;
+  background: #0f172a;
+  color: #fff;
+  font-size: 0.85rem;
+  width: 120px;
+}
+
+.nav-input::placeholder {
+  color: #94a3b8;
+}
+
+.db-badge {
+  font-size: 0.8rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.db-badge.ro {
+  background: #334155;
+  color: #cbd5e1;
+}
+
+.db-badge.rw {
+  background: #14532d;
+  color: #86efac;
 }
 
 .container {
@@ -1351,6 +1705,54 @@ body {
   font-size: 0.85rem;
 }
 
+.sort-link {
+  color: inherit;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sort-link:hover {
+  color: #93c5fd;
+}
+
+.sort-arrow {
+  font-size: 0.78rem;
+  opacity: 0.65;
+}
+
+.sort-link.active .sort-arrow {
+  opacity: 1;
+  color: #60a5fa;
+}
+
+.hero-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+  background-color: #1e293b;
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
+}
+
+.hero-card::before {
+  content: "";
+  position: absolute;
+  inset: -16px;
+  background-image: var(--hero-bg);
+  background-size: cover;
+  background-position: center;
+  filter: blur(8px) brightness(0.45);
+  z-index: 0;
+}
+
+.hero-overlay {
+  position: relative;
+  z-index: 1;
+  padding: 2.25rem 2rem;
+}
+
 
 =========================================
 ФАЙЛ: ./sql.php
@@ -1387,16 +1789,34 @@ function select(string $table, string|array $pk, array $columns, array $fixedWhe
     $fks        = [];
     $whereParts = [];
     $params     = [];
+    $sortExprs  = [];
+    $sortMap    = [];
 
     foreach ($columns as $field => $meta) {
         if ($meta instanceof Pivot) continue;
+        $header = is_string($meta) ? $meta : $meta->label;
+
         if ($meta instanceof Foreign) {
-            $selectParts[] = ident($field);
-            $fks[$field]   = get_foreign($dbc, $meta->table, $meta->column);
+            $selectParts[]      = ident($field);
+            $fks[$field]        = get_foreign($dbc, $meta->table, $meta->column);
+            $sortExprs[$field]  = ident($field);
+            $sortMap[$header]   = $field;
         } elseif ($meta instanceof Subquery) {
             $selectParts[] = "({$meta->sql}) AS " . ident($field);
+            if ($meta->table === null) {
+                $sortExprs[$field] = $meta->sortSql !== null ? "({$meta->sortSql})" : ident($field);
+                $sortMap[$header]  = $field;
+            } else {
+                $sortMap[$header] = null;
+            }
         } else {
             $selectParts[] = ident($field);
+            if (!str_contains($field, '_path')) {
+                $sortExprs[$field] = ident($field);
+                $sortMap[$header]  = $field;
+            } else {
+                $sortMap[$header] = null;
+            }
         }
     }
 
@@ -1436,10 +1856,16 @@ function select(string $table, string|array $pk, array $columns, array $fixedWhe
         }
     }
 
-    $where      = $whereParts ? 'WHERE ' . implode(' AND ', $whereParts) : '';
-    $currentDir = strtoupper($_GET['dir'] ?? 'ASC') === 'ASC' ? 'ASC' : 'DESC';
-    $orderCols  = array_map(fn($c) => ident($c) . " $currentDir", $pkCols);
-    $orderBy    = $orderCols ? 'ORDER BY ' . implode(', ', $orderCols) : '';
+    $where     = $whereParts ? 'WHERE ' . implode(' AND ', $whereParts) : '';
+    $sortField = (string)($_GET['sort'] ?? '');
+    $sortDir   = strtoupper((string)($_GET['dir'] ?? 'ASC')) === 'DESC' ? 'DESC' : 'ASC';
+
+    if ($sortField !== '' && isset($sortExprs[$sortField])) {
+        $orderBy = 'ORDER BY ' . $sortExprs[$sortField] . " $sortDir";
+    } else {
+        $orderCols = array_map(fn($c) => ident($c) . " $sortDir", $pkCols);
+        $orderBy   = $orderCols ? 'ORDER BY ' . implode(', ', $orderCols) : '';
+    }
 
     $attributes = implode(', ', $selectParts);
     $tableIdent = ident($table);
@@ -1477,6 +1903,7 @@ function select(string $table, string|array $pk, array $columns, array $fixedWhe
         );
     }
 
+    $result['__sort'] = $sortMap;
     return $result;
 }
 
@@ -1526,6 +1953,13 @@ function save_row(string $table, string|array $pk, array $columns, array $data, 
 
         if (preg_match('/^varchar\((\d+)\)/i', $col['Type'], $m) && mb_strlen((string)$raw) > (int)$m[1]) {
             throw new RuntimeException("Поле «{$f}» перевищує максимум у {$m[1]} символів.");
+        }
+        if ($f === 'phone' && $raw !== null) {
+            $normalized = preg_replace('/[\s\-\(\)]+/', '', (string)$raw);
+            if (!preg_match('/^(\+380\d{9}|\+(?!380)[1-9]\d{9,14})$/', $normalized)) {
+                throw new RuntimeException('Некоректний номер телефону. Використовуйте формат +380XXXXXXXXX (9 цифр після +380).');
+            }
+            $raw = $normalized;
         }
 
         $values[$f] = $raw;

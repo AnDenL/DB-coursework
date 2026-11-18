@@ -3,5 +3,6 @@
 <body>
 <?php include 'menu.php'; ?>
 <h1>Error 404! Page not found</h1>
+<?php include 'footer.php'; ?>
 </body>
 </html>

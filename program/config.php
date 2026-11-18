@@ -1,8 +1,8 @@
 <?php
 return [
-    'host' => 'localhost',
-    'user' => 'andenl',
-    'pass' => '58327',
-    'rdms' => 'mysql',
-    'db'   => 'expeditions_db',
+    'host'       => 'localhost',
+    'rdms'       => 'mysql',
+    'db'         => 'expeditions_db',
+    'guest_user' => 'guest',
+    'guest_pass' => 'guest',
 ];

@@ -1,4 +1,7 @@
-<?php $actionBase = $tableBasePath ?? $basePath; ?>
+<?php
+$actionBase = $tableBasePath ?? $basePath;
+$canWrite = DB::can_write();
+?>
 
 <div class="table-wrap">
 <table class="table">
@@ -7,7 +10,7 @@
             <?php foreach ($headers as $colName) {
                 include 'column_head.php';
             } ?>
-            <?php if (isset($result['__id'])): ?>
+            <?php if (isset($result['__id']) && $canWrite): ?>
                 <th>Дії</th>
             <?php endif; ?>
         </tr>
@@ -19,7 +22,7 @@
                 <?php foreach ($headers as $colName) {
                     include 'block.php';
                 } ?>
-                <?php if (isset($result['__id'])): ?>
+                <?php if (isset($result['__id']) && $canWrite): ?>
                     <td style="white-space: nowrap;">
                         <a href="<?= htmlspecialchars($actionBase) ?>?edit=<?= urlencode($rowId) ?>" class="btn btn-secondary">Редагувати</a>
                         <form method="POST" action="<?= htmlspecialchars($actionBase) ?>/delete?id=<?= urlencode($rowId) ?>" style="display:inline;"

@@ -153,6 +153,9 @@ foreach ($tables as $table => $cfg) {
             save_row($table, $pk, $schemaColumns, $_POST, $editId);
             redirect("/$table");
         } catch (Throwable $e) {
+            if ($e instanceof PDOException && ($e->errorInfo[1] ?? 0) === 1142) {
+                redirect("/$table", 'У вас немає прав для зміни даних: поточний користувач має права лише на читання.');
+            }
             $record    = $_POST;
             $showForm  = true;
             $formError = $e->getMessage();
@@ -167,8 +170,47 @@ foreach ($tables as $table => $cfg) {
         try {
             delete_row($table, $pk, (string)($_GET['id'] ?? ''));
             redirect($returnTo);
-        } catch (PDOException) {
+        } catch (PDOException $e) {
+            if (($e->errorInfo[1] ?? 0) === 1142) {
+                redirect($returnTo, 'У вас немає прав для видалення даних: поточний користувач має права лише на читання.');
+            }
             redirect($returnTo, 'Неможливо видалити запис, оскільки на нього посилаються інші таблиці.');
         }
     });
 }
+
+$router->add('POST', '/login', function () {
+    if (session_status() === PHP_SESSION_NONE) session_start();
+    $cfg  = require __DIR__ . '/config.php';
+    $user = trim((string)($_POST['db_user'] ?? ''));
+    $pass = (string)($_POST['db_pass'] ?? '');
+    $back = safe_return_url($_POST['_redirect'] ?? null, '/expeditions');
+
+    if ($user === '') {
+        redirect($back, 'Вкажіть ім’я користувача.');
+    }
+
+    if ($user === $cfg['guest_user']) {
+        unset($_SESSION['db_user'], $_SESSION['db_pass']);
+        redirect($back, 'Bruh ви вже перебуваєте в гостьовому режимі.');
+    }
+
+    try {
+        DB::connect($user, $pass);
+        session_regenerate_id(true);
+        $_SESSION['db_user']       = $user;
+        $_SESSION['db_pass']       = $pass;
+        $_SESSION['last_activity'] = time();
+        redirect($back);
+    } catch (PDOException) {
+        redirect($back, 'Невірний логін або пароль.');
+    }
+});
+
+$router->add('POST', '/logout', function () {
+    if (session_status() === PHP_SESSION_NONE) session_start();
+    $back = safe_return_url($_POST['_redirect'] ?? null, '/expeditions');
+    $_SESSION = [];
+    session_destroy();
+    redirect($back);
+});

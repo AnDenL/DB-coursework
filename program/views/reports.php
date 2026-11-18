@@ -42,6 +42,7 @@
         </div>
 
         <div class="card">
+            <div class="table-wrap">
             <h2 class="card-title">1. Результативність експедицій та оціночна вартість знахідок</h2>
             <table class="table">
                 <thead>
@@ -65,9 +66,11 @@
                     <?php endforeach; ?>
                 </tbody>
             </table>
+            </div>
         </div>
 
         <div class="card">
+            <div class="table-wrap">
             <h2 class="card-title">2. Залученість наукових співробітників</h2>
             <table class="table">
                 <thead>
@@ -87,9 +90,11 @@
                     <?php endforeach; ?>
                 </tbody>
             </table>
+            </div>
         </div>
 
         <div class="card">
+            <div class="table-wrap">
             <h2 class="card-title">3. Використання та вартість польового спорядження</h2>
             <table class="table">
                 <thead>
@@ -111,7 +116,9 @@
                     <?php endforeach; ?>
                 </tbody>
             </table>
+            </div>
         </div>
     </div>
+    <?php include 'footer.php'; ?>
 </body>
 </html>

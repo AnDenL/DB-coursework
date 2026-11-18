@@ -24,9 +24,39 @@ body {
   background-color: var(--bg);
   color: var(--text);
   line-height: 1.5;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
-/* Навігація */
+.site-footer {
+  margin-top: auto;
+  background-color: #1e293b;
+  color: #94a3b8;
+  padding: 0.75rem 2rem;
+  font-size: 0.85rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.footer-stats {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.footer-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 5px;
+}
+
 .navbar {
   background-color: #1e293b;
   color: #fff;
@@ -63,6 +93,51 @@ body {
 .nav-link.active {
   background-color: #334155;
   color: #fff;
+}
+
+.nav-auth {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.nav-login-form {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.nav-input {
+  padding: 0.32rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid #475569;
+  background: #0f172a;
+  color: #fff;
+  font-size: 0.85rem;
+  width: 120px;
+}
+
+.nav-input::placeholder {
+  color: #94a3b8;
+}
+
+.db-badge {
+  font-size: 0.8rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.db-badge.ro {
+  background: #334155;
+  color: #cbd5e1;
+}
+
+.db-badge.rw {
+  background: #14532d;
+  color: #86efac;
 }
 
 .container {
@@ -290,4 +365,52 @@ body {
   width: 150px;
   padding: 0.3rem 0.5rem;
   font-size: 0.85rem;
+}
+
+.sort-link {
+  color: inherit;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sort-link:hover {
+  color: #93c5fd;
+}
+
+.sort-arrow {
+  font-size: 0.78rem;
+  opacity: 0.65;
+}
+
+.sort-link.active .sort-arrow {
+  opacity: 1;
+  color: #60a5fa;
+}
+
+.hero-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+  background-color: #1e293b;
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
+}
+
+.hero-card::before {
+  content: "";
+  position: absolute;
+  inset: -16px;
+  background-image: var(--hero-bg);
+  background-size: cover;
+  background-position: center;
+  filter: blur(8px) brightness(0.45);
+  z-index: 0;
+}
+
+.hero-overlay {
+  position: relative;
+  z-index: 1;
+  padding: 2.25rem 2rem;
 }

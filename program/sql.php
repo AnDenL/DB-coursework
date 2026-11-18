@@ -30,16 +30,34 @@ function select(string $table, string|array $pk, array $columns, array $fixedWhe
     $fks        = [];
     $whereParts = [];
     $params     = [];
+    $sortExprs  = [];
+    $sortMap    = [];
 
     foreach ($columns as $field => $meta) {
         if ($meta instanceof Pivot) continue;
+        $header = is_string($meta) ? $meta : $meta->label;
+
         if ($meta instanceof Foreign) {
-            $selectParts[] = ident($field);
-            $fks[$field]   = get_foreign($dbc, $meta->table, $meta->column);
+            $selectParts[]      = ident($field);
+            $fks[$field]        = get_foreign($dbc, $meta->table, $meta->column);
+            $sortExprs[$field]  = ident($field);
+            $sortMap[$header]   = $field;
         } elseif ($meta instanceof Subquery) {
             $selectParts[] = "({$meta->sql}) AS " . ident($field);
+            if ($meta->table === null) {
+                $sortExprs[$field] = $meta->sortSql !== null ? "({$meta->sortSql})" : ident($field);
+                $sortMap[$header]  = $field;
+            } else {
+                $sortMap[$header] = null;
+            }
         } else {
             $selectParts[] = ident($field);
+            if (!str_contains($field, '_path')) {
+                $sortExprs[$field] = ident($field);
+                $sortMap[$header]  = $field;
+            } else {
+                $sortMap[$header] = null;
+            }
         }
     }
 
@@ -79,10 +97,16 @@ function select(string $table, string|array $pk, array $columns, array $fixedWhe
         }
     }
 
-    $where      = $whereParts ? 'WHERE ' . implode(' AND ', $whereParts) : '';
-    $currentDir = strtoupper($_GET['dir'] ?? 'ASC') === 'ASC' ? 'ASC' : 'DESC';
-    $orderCols  = array_map(fn($c) => ident($c) . " $currentDir", $pkCols);
-    $orderBy    = $orderCols ? 'ORDER BY ' . implode(', ', $orderCols) : '';
+    $where     = $whereParts ? 'WHERE ' . implode(' AND ', $whereParts) : '';
+    $sortField = (string)($_GET['sort'] ?? '');
+    $sortDir   = strtoupper((string)($_GET['dir'] ?? 'ASC')) === 'DESC' ? 'DESC' : 'ASC';
+
+    if ($sortField !== '' && isset($sortExprs[$sortField])) {
+        $orderBy = 'ORDER BY ' . $sortExprs[$sortField] . " $sortDir";
+    } else {
+        $orderCols = array_map(fn($c) => ident($c) . " $sortDir", $pkCols);
+        $orderBy   = $orderCols ? 'ORDER BY ' . implode(', ', $orderCols) : '';
+    }
 
     $attributes = implode(', ', $selectParts);
     $tableIdent = ident($table);
@@ -120,6 +144,7 @@ function select(string $table, string|array $pk, array $columns, array $fixedWhe
         );
     }
 
+    $result['__sort'] = $sortMap;
     return $result;
 }
 
@@ -169,6 +194,13 @@ function save_row(string $table, string|array $pk, array $columns, array $data, 
 
         if (preg_match('/^varchar\((\d+)\)/i', $col['Type'], $m) && mb_strlen((string)$raw) > (int)$m[1]) {
             throw new RuntimeException("Поле «{$f}» перевищує максимум у {$m[1]} символів.");
+        }
+        if ($f === 'phone' && $raw !== null) {
+            $normalized = preg_replace('/[\s\-\(\)]+/', '', (string)$raw);
+            if (!preg_match('/^(\+380\d{9}|\+(?!380)[1-9]\d{9,14})$/', $normalized)) {
+                throw new RuntimeException('Некоректний номер телефону. Використовуйте формат +380XXXXXXXXX (9 цифр після +380).');
+            }
+            $raw = $normalized;
         }
 
         $values[$f] = $raw;

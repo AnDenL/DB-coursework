@@ -94,19 +94,22 @@ $maxMb     = round($maxBytes / 1024 / 1024, 1);
                             </label>
 
                             <?php if ($isEnum): ?>
-                                <select name="<?= htmlspecialchars($field) ?>[<?= $tid ?>][extra]" class="form-control pivot-extra">
-                                    <?php foreach ($enumOpts as $opt): ?>
-                                        <option value="<?= htmlspecialchars($opt) ?>" <?= (string)$extraVal === (string)$opt ? 'selected' : '' ?>>
-                                            <?= htmlspecialchars($opt) ?>
-                                        </option>
+                                <select name="<?= htmlspecialchars($field) ?>[<?= $tid ?>][extra]"
+                                    class="form-control pivot-extra"
+                                    <?= $isChecked ? '' : 'hidden disabled' ?>>
+                                <?php foreach ($enumOpts as $opt): ?>
+                                    <option value="<?= htmlspecialchars($opt) ?>" <?= (string)$extraVal === (string)$opt ? 'selected' : '' ?>>
+                                        <?= htmlspecialchars($opt) ?>
+                                    </option>
                                     <?php endforeach; ?>
                                 </select>
                             <?php else: ?>
                                 <input type="number"
-                                       name="<?= htmlspecialchars($field) ?>[<?= $tid ?>][extra]"
-                                       value="<?= htmlspecialchars((string)$extraVal) ?>"
-                                       min="1" max="10000" step="1"
-                                       class="form-control pivot-extra">
+                                    name="<?= htmlspecialchars($field) ?>[<?= $tid ?>][extra]"
+                                    value="<?= htmlspecialchars((string)$extraVal) ?>"
+                                    min="1" max="10000" step="1"
+                                    class="form-control pivot-extra"
+                                    <?= $isChecked ? '' : 'hidden disabled' ?>>
                             <?php endif; ?>
                         </div>
                     <?php endforeach; ?>
@@ -242,12 +245,23 @@ document.querySelectorAll('.pivot-box').forEach(box => {
     };
 
     box.querySelectorAll('.pivot-row').forEach(row => {
-        const cb = row.querySelector('input[type="checkbox"]');
-        const extra = row.querySelector('.pivot-extra');
-        extra?.addEventListener('input', () => { if (cb) cb.checked = true; recalc(); });
-        extra?.addEventListener('change', () => { if (cb) cb.checked = true; recalc(); });
-        cb?.addEventListener('change', recalc);
-    });
+          const cb = row.querySelector('input[type="checkbox"]');
+          const extra = row.querySelector('.pivot-extra');
+  
+          const syncRow = () => {
+              if (!extra || !cb) return;
+              extra.hidden = !cb.checked;
+              extra.disabled = !cb.checked;
+          };
+  
+          cb?.addEventListener('change', () => {
+              syncRow();
+              recalc();
+          });
+          extra?.addEventListener('input', recalc);
+          extra?.addEventListener('change', recalc);
+          syncRow();
+      });
 
     document.querySelector('input[name="budget"]')?.addEventListener('input', recalc);
     recalc();
