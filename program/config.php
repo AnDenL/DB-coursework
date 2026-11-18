@@ -1,6 +1,6 @@
 <?php
 return [
-    'host' => '127.0.0.1',
+    'host' => 'localhost',
     'user' => 'andenl',
     'pass' => '58327',
     'rdms' => 'mysql',

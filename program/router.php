@@ -17,12 +17,12 @@ class Router {
         $this->routes[$method][$path] = $handler;
     }
 
-    public function route(string $method, string $uri): void
+    public function route(string $method, string $path): void
     {
-        $path    = (string)(parse_url($uri, PHP_URL_PATH) ?: '/');
         $handler = $this->routes[$method][$path] ?? null;
 
         if (!$handler) {
+            $pageTitle = "Page not found";
             http_response_code(404);
             include 'views/404.php';
             return;

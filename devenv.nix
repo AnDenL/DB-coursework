@@ -26,7 +26,7 @@
       name = "andenl";
       password = "58327";
       ensurePermissions = {
-        "expeditions_db.*" = "ALL PRIVILEGES";
+        "expeditions_db.*" = "SELECT, INSERT, UPDATE, DELETE";
       };
     }];
   };
@@ -37,7 +37,7 @@
 
   # https://devenv.sh/basics/
   enterShell = ''
-    devenv up -d
+
   '';
 
   # https://devenv.sh/tasks/

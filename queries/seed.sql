@@ -1,71 +1,70 @@
-DROP DATABASE IF EXISTS expeditions_db;
-CREATE DATABASE expeditions_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE expeditions_db;
 
-CREATE TABLE regions (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    description MEDIUMTEXT,     -- can be without description
-    temperature_zone ENUM('Freezing', 'Cold', 'Temperate', 'Warm', 'Scorching') NOT NULL,
-    humidity_level ENUM('Arid', 'Dry', 'Moderate', 'Humid', 'Swampy') NOT NULL,
-    terrain_type ENUM('Forest', 'Mountains', 'Plains', 'Swamp', 'Coast', 'Underground', 'Desert') NOT NULL,
-    photo_path VARCHAR(255)     -- photo is optional
-);
+INSERT INTO regions (name, description, temperature_zone, humidity_level, terrain_type, photo_path) VALUES
+('Українське Полісся', 'Лісисто-болотистий регіон на півночі України з багатою архаїчною обрядовістю та дерев''яним зодчеством.', 'Temperate', 'Swampy', 'Swamp', 'uploads/regions/polissia.jpg'),
+('Гуцульщина (Чорногора)', 'Високогірний карпатський регіон із самобутнім ткацтвом, мосяжництвом та полонинським господарством.', 'Cold', 'Humid', 'Mountains', 'uploads/regions/hutsul.jpg'),
+('Східне Поділля', 'Лісостепова зона з традиціями настінного розпису хат та гончарними осередками.', 'Temperate', 'Moderate', 'Plains', 'uploads/regions/podillia.jpg'),
+('Таврійський степ', 'Посушливий степовий регіон півдня з курганними комплексами та козацькими зимівниками.', 'Warm', 'Dry', 'Desert', NULL),
+('Покуття та Подністров''я', 'Горбиста місцевість уздовж Дністра з печерними скитами та традиційною вишивкою.', 'Temperate', 'Humid', 'Underground', 'uploads/regions/pokuttia.jpg'),
+('Приазов''я', 'Прибережна степова смуга з багатонаціональним фольклором греків та українців.', 'Warm', 'Moderate', 'Coast', 'uploads/regions/azov.jpg');
 
-CREATE TABLE researchers (
-    id SERIAL PRIMARY KEY,
-    full_name VARCHAR(120) NOT NULL,
-    photo_path VARCHAR(255) NOT NULL,
-    academic_degree VARCHAR(80) NOT NULL,
-    phone VARCHAR(20) NOT NULL
-);
+INSERT INTO researchers (full_name, photo_path, academic_degree, phone) VALUES
+('Ковальчук Олена Петрівна', 'uploads/researchers/kovalchuk.jpg', 'Доктор історичних наук', '+380671234501'),
+('Мельник Тарас Григорович', 'uploads/researchers/melnyk.jpg', 'Кандидат філологічних наук', '+380502345602'),
+('Бойко Ірина Василівна', 'uploads/researchers/boyko.jpg', 'Кандидат мистецтвознавства', '+380933456703'),
+('Савченко Андрій Миколайович', 'uploads/researchers/savchenko.jpg', 'Старший науковий співробітник', '+380684567804'),
+('Ткаченко Марія Олександрівна', 'uploads/researchers/tkachenko.jpg', 'Реставратор вищої категорії', '+380975678905'),
+('Гнатюк Роман Степанович', 'uploads/researchers/hnatiuk.jpg', 'Молодший науковий співробітник', '+380636789006');
 
-CREATE TABLE equipment (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    estimated_cost DECIMAL(10, 2) NOT NULL
-);
+INSERT INTO equipment (name, estimated_cost) VALUES
+('Польовий диктофон Zoom H5', 11500.00),
+('Фотоапарат Sony Alpha + об''єктив', 34000.00),
+('Набір для консервації текстилю', 4800.00),
+('Захищений GPS-навігатор Garmin', 14200.00),
+('Експедиційний намет (4-місний)', 8900.00),
+('Портативний LED-освітлювач для зйомки', 3600.00),
+('Герметичний кофр для артефактів', 5400.00);
 
-CREATE TABLE expeditions (
-    id SERIAL PRIMARY KEY,
-    title VARCHAR(100) NOT NULL,
-    region_id BIGINT UNSIGNED NOT NULL,
-    budget INT UNSIGNED NOT NULL,
-    start_date DATE NOT NULL,
-    end_date DATE,              -- NULL = expedition haven't ended yet
+INSERT INTO expeditions (title, region_id, budget, start_date, end_date) VALUES
+('Поліська архаїка: обряди та побут', 1, 85000, '2026-05-10', '2026-05-24'),
+('Скарби Чорногори та полонин', 2, 110000, '2026-06-15', '2026-07-02'),
+('Гончарні традиції Східного Поділля', 3, 65000, '2026-07-20', '2026-08-01'),
+('Степові шляхи Таврії', 4, 72000, '2026-08-12', '2026-08-23'),
+('Печерні храми Подністров''я', 5, 95000, '2026-09-05', '2026-09-18'),
+('Осінній збір фольклору Приазов''я', 6, 60000, '2026-11-10', NULL);
 
-    FOREIGN KEY (region_id) REFERENCES regions(id)
-);
+INSERT INTO expedition_members (expedition_id, researcher_id, researcher_role) VALUES
+(1, 1, 'Leader'),
+(1, 2, 'Folklorist'),
+(1, 5, 'Restorer'),
+(2, 1, 'Leader'),
+(2, 3, 'Collector'),
+(2, 4, 'Archivist'),
+(2, 6, 'Bodyguard'),
+(3, 3, 'Leader'),
+(3, 5, 'Restorer'),
+(4, 4, 'Leader'),
+(5, 1, 'Leader'),
+(6, 2, 'Leader');
 
-CREATE TABLE expedition_members (
-    expedition_id BIGINT UNSIGNED NOT NULL,
-    researcher_id BIGINT UNSIGNED NOT NULL,
-    researcher_role ENUM('Leader', 'Folklorist', 'Collector', 'Restorer', 'Archivist', 'Bodyguard') NOT NULL,
-    PRIMARY KEY (expedition_id, researcher_id),
+INSERT INTO expedition_equipment (expedition_id, equipment_id, count) VALUES
+(1, 1, 2),
+(1, 4, 1),
+(1, 5, 2),
+(2, 2, 1),
+(2, 4, 2),
+(2, 5, 2),
+(2, 7, 2),
+(3, 3, 2),
+(3, 6, 2),
+(5, 2, 1),
+(6, 1, 2);
 
-    CONSTRAINT fk_members_expedition FOREIGN KEY (expedition_id) REFERENCES expeditions(id) ON DELETE CASCADE,
-    CONSTRAINT fk_members_researcher FOREIGN KEY (researcher_id) REFERENCES researchers(id) ON DELETE RESTRICT
-);
-
-CREATE TABLE expedition_equipment (
-    expedition_id BIGINT UNSIGNED NOT NULL,
-    equipment_id BIGINT UNSIGNED NOT NULL,
-    count INT UNSIGNED NOT NULL,
-    PRIMARY KEY (expedition_id, equipment_id),
-
-    CONSTRAINT fk_equip_expedition FOREIGN KEY (expedition_id) REFERENCES expeditions(id) ON DELETE CASCADE,
-    CONSTRAINT fk_equip_item FOREIGN KEY (equipment_id) REFERENCES equipment(id) ON DELETE CASCADE
-);
-
-CREATE TABLE artifacts (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    description MEDIUMTEXT,         -- artifact can be without description
-    photo_path VARCHAR(255),        -- photo is optional
-    expedition_id BIGINT UNSIGNED NOT NULL,
-    item_condition ENUM('Good', 'Mediocre', 'Needs restoration') NOT NULL,
-    estimated_century INT,          -- NULL = not measured
-    estimated_value DECIMAL(10, 2), -- NULL = not measured
-
-    FOREIGN KEY (expedition_id) REFERENCES expeditions(id)
-);
+INSERT INTO artifacts (name, description, photo_path, expedition_id, item_condition, estimated_century, estimated_value) VALUES
+('Поліський тканий рушник-набожник', 'Домоткане полотно з геометричним червоним орнаментом, знайдено в с. Сварицевичі.', 'uploads/artifacts/rushnyk.jpg', 1, 'Needs restoration', 19, 18500.00),
+('Збірник веснянок та русальних пісень', 'Аудіозапис та розшифровка 24 обрядових пісень від місцевих старожилів.', NULL, 1, 'Good', 20, 4000.00),
+('Гуцульський топірець-бартка', 'Латунне карбування по топорищу з ясена, родинна реліквія з Верховинщини.', 'uploads/artifacts/bartka.jpg', 2, 'Good', 19, 32000.00),
+('Керамічна миска з підполив''яним розписом', 'Традиційний подільський орнамент із зображенням птахів, є тріщина по краю.', 'uploads/artifacts/myska.jpg', 3, 'Mediocre', 18, 24000.00),
+('Дерев''яна скриня з кованими окуттями', 'Весільна скриня, розписана рослинними мотивами, потребує очищення та зміцнення деревини.', 'uploads/artifacts/skrynia.jpg', 3, 'Needs restoration', 19, 29500.00),
+('Мідний натільний хрест', 'Знайдений поблизу старого козацького тракту, патина збережена.', NULL, 4, 'Mediocre', 17, 15000.00),
+('Фрагмент кам''яної плити з петрогліфами', 'Неідентифікований знак зі скельного комплексу, передано на експертизу.', 'uploads/artifacts/stone.jpg', 5, 'Needs restoration', NULL, NULL);

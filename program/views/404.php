@@ -1,13 +1,7 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Not found!</title>
-</head>
+<?php include 'head.php'; ?>
 <body>
-<?php
-    include 'menu.php';
-?>
+<?php include 'menu.php'; ?>
+<h1>Error 404! Page not found</h1>
 </body>
 </html>
