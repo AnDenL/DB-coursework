@@ -8,6 +8,7 @@
             <a href="/researchers" class="nav-link">Researchers</a>
             <a href="/equipment"   class="nav-link">Equipment</a>
             <a href="/artifacts"   class="nav-link">Artifacts</a>
+            <a href="/reports"     class="nav-link">Reports</a>
         </div>
     </nav>
 </div>

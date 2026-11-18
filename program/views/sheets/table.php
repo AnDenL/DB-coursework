@@ -1,23 +1,38 @@
-<?php
-$columns = array_keys($result);
-$rowCount = !empty($columns) ? count($result[$columns[0]]) : 0;
-?>
+<?php $actionBase = $tableBasePath ?? $basePath; ?>
 
+<div class="table-wrap">
 <table class="table">
     <thead>
         <tr>
-            <?php foreach ($columns as $colName) {
+            <?php foreach ($headers as $colName) {
                 include 'column_head.php';
-            }?>
+            } ?>
+            <?php if (isset($result['__id'])): ?>
+                <th>Дії</th>
+            <?php endif; ?>
         </tr>
     </thead>
     <tbody>
         <?php for ($i = 0; $i < $rowCount; $i++): ?>
-            <tr>
-                <?php foreach ($columns as $colName) {
+            <?php $rowId = isset($result['__id']) ? (string)$result['__id'][$i] : ''; ?>
+            <tr style="<?= ($editId ?? null) === $rowId ? 'background-color: #dbeafe;' : '' ?>">
+                <?php foreach ($headers as $colName) {
                     include 'block.php';
-                }?>
+                } ?>
+                <?php if (isset($result['__id'])): ?>
+                    <td style="white-space: nowrap;">
+                        <a href="<?= htmlspecialchars($actionBase) ?>?edit=<?= urlencode($rowId) ?>" class="btn btn-secondary">Редагувати</a>
+                        <form method="POST" action="<?= htmlspecialchars($actionBase) ?>/delete?id=<?= urlencode($rowId) ?>" style="display:inline;"
+                              onsubmit="return confirm('Видалити цей запис?');">
+                            <?php if (!empty($returnUrl)): ?>
+                                <input type="hidden" name="_redirect" value="<?= htmlspecialchars($returnUrl) ?>">
+                            <?php endif; ?>
+                            <button type="submit" class="btn btn-danger">Видалити</button>
+                        </form>
+                    </td>
+                <?php endif; ?>
             </tr>
         <?php endfor; ?>
     </tbody>
 </table>
+</div>

@@ -1,0 +1,1613 @@
+=========================================
+ФАЙЛ: ./index.php
+=========================================
+<?php
+declare(strict_types=1);
+
+require_once "db.php";
+require_once "router.php";
+
+$path    = (string)(parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/');
+
+$router->route($_SERVER['REQUEST_METHOD'] ?? 'GET', $path);
+
+
+=========================================
+ФАЙЛ: ./views/home.php
+=========================================
+<!DOCTYPE html>
+<?php include 'head.php'; ?>
+<body>
+<?php include 'menu.php'; ?>
+</body>
+</html>
+
+
+=========================================
+ФАЙЛ: ./views/menu.php
+=========================================
+<?php global $path; ?>
+<div class="navbar">
+    <nav>
+        <div class="nav-links">
+            <a href="/"            class="nav-link">Home</a>
+            <a href="/expeditions" class="nav-link">Expeditions</a>
+            <a href="/regions"     class="nav-link">Regions</a>
+            <a href="/researchers" class="nav-link">Researchers</a>
+            <a href="/equipment"   class="nav-link">Equipment</a>
+            <a href="/artifacts"   class="nav-link">Artifacts</a>
+            <a href="/reports"     class="nav-link">Reports</a>
+        </div>
+    </nav>
+</div>
+
+=========================================
+ФАЙЛ: ./views/404.php
+=========================================
+<!DOCTYPE html>
+<?php include 'head.php'; ?>
+<body>
+<?php include 'menu.php'; ?>
+<h1>Error 404! Page not found</h1>
+</body>
+</html>
+
+
+=========================================
+ФАЙЛ: ./views/crud.php
+=========================================
+<!DOCTYPE html>
+<?php include 'head.php'; ?>
+<body>
+    <?php
+        include 'menu.php';
+        $basePath = strtok($_SERVER['REQUEST_URI'] ?? '/', '?');
+        $headers  = array_values(array_diff(array_keys($result), ['__id']));
+        $rowCount = !empty($headers) ? count($result[$headers[0]]) : 0;
+        $dbc      = DB::get_connection();
+    ?>
+
+    <div class="container">
+        <div class="page-header">
+            <h1 class="page-title"><?= htmlspecialchars($pageTitle) ?></h1>
+            <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+                <?php if (!$showForm): ?>
+                    <a href="<?= htmlspecialchars($basePath) ?>?create=1" class="btn btn-primary">+ Додати запис</a>
+                <?php endif; ?>
+            </div>
+        </div>
+
+        <?php if (!empty($_GET['error'])): ?>
+            <div class="card" style="border-color: var(--danger); color: var(--danger); font-weight: 500;">
+                <?= htmlspecialchars((string)$_GET['error']) ?>
+            </div>
+        <?php endif; ?>
+
+        <?php if ($showForm): ?>
+            <?php include 'sheets/form.php'; ?>
+        <?php endif; ?>
+
+        <form method="GET" action="<?= htmlspecialchars($basePath) ?>" class="card" style="display:flex; gap:0.75rem; flex-wrap:wrap; align-items:center;">
+            <input type="text" name="q" value="<?= htmlspecialchars((string)($_GET['q'] ?? '')) ?>"
+                   placeholder="Пошук..." class="form-control" style="max-width: 240px;">
+
+            <?php foreach ($schemaColumns as $field => $meta): ?>
+                <?php if ($meta instanceof Foreign): ?>
+                    <?php $opts = get_foreign($dbc, $meta->table, $meta->column); ?>
+                    <select name="<?= htmlspecialchars($field) ?>" class="form-control" style="max-width: 220px;">
+                        <option value="">Всі: <?= htmlspecialchars($meta->label) ?></option>
+                        <?php foreach ($opts as $optId => $opt): ?>
+                            <option value="<?= (int)$optId ?>" <?= (string)($_GET[$field] ?? '') === (string)$optId ? 'selected' : '' ?>>
+                                <?= htmlspecialchars((string)$opt['label']) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                <?php endif; ?>
+            <?php endforeach; ?>
+
+            <button type="submit" class="btn btn-primary">Знайти</button>
+            <?php if (!empty(array_diff_key($_GET, ['create' => 1, 'edit' => 1, 'error' => 1]))): ?>
+                <a href="<?= htmlspecialchars($basePath) ?>" class="btn btn-secondary">Скинути</a>
+            <?php endif; ?>
+        </form>
+
+        <?php include 'sheets/table.php'; ?>
+    </div>
+</body>
+</html>
+
+
+=========================================
+ФАЙЛ: ./views/head.php
+=========================================
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link rel="stylesheet" href="/styles.css">
+	<title><?= htmlspecialchars($pageTitle) ?></title>
+</head>
+
+
+=========================================
+ФАЙЛ: ./views/select.php
+=========================================
+<?php
+foreach ($result as $column => $values) {
+    echo '<thead>';
+
+    echo '<thead>';
+    echo '<tbody>';
+    foreach ($column as $field) {
+        if (str_contains((string)($column[0] ?? '—'), '_path')) include 'sheets/photo_path.php';
+        else include 'sheets/varchar.php';
+    }
+    echo '</tbody>';    
+}
+
+echo '<tbody>';
+foreach ($result['Fields'] as $column) {
+    echo '<tr>';
+    foreach ($column as $field) {
+        if (str_contains((string)($column[0] ?? '—'), '_path')) include 'sheets/photo_path.php';
+        else include 'sheets/varchar.php';
+    }
+    echo '</tr>';
+}
+echo '</tbody>';
+
+
+=========================================
+ФАЙЛ: ./views/sheets/column_head.php
+=========================================
+<th><?= htmlspecialchars((string)($colName ?? '—')) ?></th>
+
+
+=========================================
+ФАЙЛ: ./views/sheets/table.php
+=========================================
+<?php $actionBase = $tableBasePath ?? $basePath; ?>
+
+<div class="table-wrap">
+<table class="table">
+    <thead>
+        <tr>
+            <?php foreach ($headers as $colName) {
+                include 'column_head.php';
+            } ?>
+            <?php if (isset($result['__id'])): ?>
+                <th>Дії</th>
+            <?php endif; ?>
+        </tr>
+    </thead>
+    <tbody>
+        <?php for ($i = 0; $i < $rowCount; $i++): ?>
+            <?php $rowId = isset($result['__id']) ? (string)$result['__id'][$i] : ''; ?>
+            <tr style="<?= ($editId ?? null) === $rowId ? 'background-color: #dbeafe;' : '' ?>">
+                <?php foreach ($headers as $colName) {
+                    include 'block.php';
+                } ?>
+                <?php if (isset($result['__id'])): ?>
+                    <td style="white-space: nowrap;">
+                        <a href="<?= htmlspecialchars($actionBase) ?>?edit=<?= urlencode($rowId) ?>" class="btn btn-secondary">Редагувати</a>
+                        <form method="POST" action="<?= htmlspecialchars($actionBase) ?>/delete?id=<?= urlencode($rowId) ?>" style="display:inline;"
+                              onsubmit="return confirm('Видалити цей запис?');">
+                            <?php if (!empty($returnUrl)): ?>
+                                <input type="hidden" name="_redirect" value="<?= htmlspecialchars($returnUrl) ?>">
+                            <?php endif; ?>
+                            <button type="submit" class="btn btn-danger">Видалити</button>
+                        </form>
+                    </td>
+                <?php endif; ?>
+            </tr>
+        <?php endfor; ?>
+    </tbody>
+</table>
+</div>
+
+
+=========================================
+ФАЙЛ: ./views/sheets/block.php
+=========================================
+<?php $cell = $result[$colName][$i] ?? null; ?>
+
+<?php if (str_contains($colName, 'Фото')): ?>
+    <td>
+        <?php if (!empty($cell)): ?>
+            <img src="/<?= htmlspecialchars(ltrim((string)$cell, '/')) ?>"
+                 alt="<?= htmlspecialchars((string)$cell) ?>"
+                 style="width: 54px; height: 54px; object-fit: cover; border-radius: 25%; border: 1px solid #ccc;">
+        <?php else: ?>
+            —
+        <?php endif; ?>
+    </td>
+<?php elseif (is_array($cell)): ?>
+    <td>
+        <?php $links = isset($cell['url']) ? [$cell] : $cell; ?>
+        <?php if (empty($links)): ?>
+            <span style="color: var(--text-muted);">Не визначено</span>
+        <?php else: ?>
+            <div class="cell-scroll">
+                <?php foreach ($links as $l): ?>
+                    <a href="<?= htmlspecialchars($l['url']) ?>" class="cell-tag">
+                        <?= htmlspecialchars((string)$l['label']) ?>
+                    </a>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
+    </td>
+<?php else: ?>
+    <td>
+        <?= htmlspecialchars((string)($cell ?? 'Не визначено')) ?>
+    </td>
+<?php endif; ?>
+
+
+=========================================
+ФАЙЛ: ./views/sheets/form.php
+=========================================
+<?php
+$dbc       = DB::get_connection();
+$scheme    = array_column(get_scheme($table), null, 'Field');
+$backUrl   = '/' . trim($table, '/');
+$record  ??= null;
+$editId  ??= null;
+$formError ??= null;
+$preset    ??= [];
+$returnUrl ??= null;
+$formTitle ??= ($record ? 'Редагування запису' : 'Новий запис');
+$actionUrl = $backUrl . '/save' . ($editId !== null ? '?edit=' . urlencode($editId) : '');
+$maxBytes  = max_upload_bytes();
+$maxMb     = round($maxBytes / 1024 / 1024, 1);
+?>
+
+<form method="POST" action="<?= htmlspecialchars($actionUrl) ?>" enctype="multipart/form-data" class="card">
+    <div class="page-header" style="margin-bottom: 1rem;">
+        <h2 class="card-title" style="margin:0;"><?= htmlspecialchars($formTitle) ?></h2>
+        <?php if ($returnUrl === null): ?>
+            <a href="<?= htmlspecialchars($backUrl) ?>" class="btn btn-secondary">✕ Скасувати</a>
+        <?php endif; ?>
+    </div>
+
+    <?php if ($returnUrl !== null): ?>
+        <input type="hidden" name="_redirect" value="<?= htmlspecialchars($returnUrl) ?>">
+    <?php endif; ?>
+
+    <?php if ($formError): ?>
+        <div class="card" style="border-color: var(--danger); color: var(--danger); font-weight: 500;">
+            <?= htmlspecialchars($formError) ?>
+        </div>
+    <?php endif; ?>
+
+    <?php foreach ($schemaColumns as $field => $meta): ?>
+        <?php if ($meta instanceof Subquery) continue; ?>
+
+        <?php if ($meta instanceof Pivot): ?>
+            <?php
+            $pivotScheme = array_column(get_scheme($meta->pivotTable), null, 'Field');
+            $extraCol    = $pivotScheme[$meta->extraField] ?? null;
+            $isEnum      = $extraCol && str_starts_with($extraCol['Type'], 'enum(');
+            $enumOpts    = $isEnum ? parse_enum($extraCol['Type']) : [];
+
+            $costSelect  = $meta->costColumn ? ', ' . ident($meta->costColumn) . ' AS unit_cost' : '';
+            $allTargets  = $dbc->query(
+                'SELECT id, ' . ident($meta->targetLabel) . " AS label $costSelect FROM " . ident($meta->targetTable) . ' ORDER BY label'
+            )->fetchAll();
+
+            $activeMap = [];
+            if (isset($record[$field]) && is_array($record[$field])) {
+                foreach ($record[$field] as $tid => $r) {
+                    if (!empty($r['checked'])) $activeMap[(int)$tid] = $r['extra'] ?? '';
+                }
+            } elseif ($editId !== null) {
+                $st = $dbc->prepare(
+                    'SELECT ' . ident($meta->foreignKey) . ' AS fid, ' . ident($meta->extraField) . ' AS extra' .
+                    ' FROM ' . ident($meta->pivotTable) . ' WHERE ' . ident($meta->localKey) . ' = :pid'
+                );
+                $st->execute(['pid' => $editId]);
+                foreach ($st->fetchAll() as $r) {
+                    $activeMap[(int)$r['fid']] = $r['extra'];
+                }
+            }
+            ?>
+            <div class="form-group">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.35rem;">
+                    <label class="form-label" style="margin:0;"><?= htmlspecialchars($meta->label) ?></label>
+                    <?php if ($meta->costColumn): ?>
+                        <span id="pivot-cost-<?= htmlspecialchars($field) ?>" style="font-size:0.88rem; font-weight:600; color:var(--primary);"></span>
+                    <?php endif; ?>
+                </div>
+
+                <div class="pivot-box" data-pivot="<?= htmlspecialchars($field) ?>">
+                    <?php foreach ($allTargets as $t): ?>
+                        <?php
+                        $tid       = (int)$t['id'];
+                        $isChecked = array_key_exists($tid, $activeMap);
+                        $extraVal  = $isChecked ? $activeMap[$tid] : ($isEnum ? ($enumOpts[0] ?? '') : '1');
+                        $unitCost  = (float)($t['unit_cost'] ?? 0);
+                        ?>
+                        <div class="pivot-row">
+                            <label class="pivot-check">
+                                <input type="checkbox"
+                                       name="<?= htmlspecialchars($field) ?>[<?= $tid ?>][checked]"
+                                       value="1"
+                                       data-cost="<?= $unitCost ?>"
+                                       <?= $isChecked ? 'checked' : '' ?>>
+                                <span>
+                                    <?= htmlspecialchars((string)$t['label']) ?>
+                                    <?php if ($meta->costColumn): ?>
+                                        <small style="color:var(--text-muted);">(<?= number_format($unitCost, 0, '.', ' ') ?> грн)</small>
+                                    <?php endif; ?>
+                                </span>
+                            </label>
+
+                            <?php if ($isEnum): ?>
+                                <select name="<?= htmlspecialchars($field) ?>[<?= $tid ?>][extra]" class="form-control pivot-extra">
+                                    <?php foreach ($enumOpts as $opt): ?>
+                                        <option value="<?= htmlspecialchars($opt) ?>" <?= (string)$extraVal === (string)$opt ? 'selected' : '' ?>>
+                                            <?= htmlspecialchars($opt) ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            <?php else: ?>
+                                <input type="number"
+                                       name="<?= htmlspecialchars($field) ?>[<?= $tid ?>][extra]"
+                                       value="<?= htmlspecialchars((string)$extraVal) ?>"
+                                       min="1" max="10000" step="1"
+                                       class="form-control pivot-extra">
+                            <?php endif; ?>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+            <?php continue; ?>
+        <?php endif; ?>
+
+        <?php
+        $col = $scheme[$field] ?? null;
+        if (!$col || str_contains($col['Extra'], 'auto_increment')) continue;
+
+        if (array_key_exists($field, $preset)): ?>
+            <input type="hidden" name="<?= htmlspecialchars($field) ?>" value="<?= htmlspecialchars((string)$preset[$field]) ?>">
+            <?php continue;
+        endif;
+
+        $label    = is_string($meta) ? $meta : $meta->label;
+        $val      = $record[$field] ?? '';
+        $isPhoto  = str_contains($field, '_path');
+        $required = ($col['Null'] === 'NO' && $col['Default'] === null && !$isPhoto) ? 'required' : '';
+        $maxLen   = preg_match('/^varchar\((\d+)\)/i', $col['Type'], $m) ? 'maxlength="' . (int)$m[1] . '"' : '';
+        $bounds   = col_bounds($col['Type']);
+        ?>
+
+        <div class="form-group">
+            <label class="form-label"><?= htmlspecialchars($label) ?></label>
+
+            <?php if ($meta instanceof Foreign): ?>
+                <?php $options = get_foreign($dbc, $meta->table, $meta->column); ?>
+                <select name="<?= htmlspecialchars($field) ?>" class="form-control" <?= $required ?>>
+                    <option value="">— Оберіть —</option>
+                    <?php foreach ($options as $optId => $opt): ?>
+                        <option value="<?= (int)$optId ?>" <?= (string)$val === (string)$optId ? 'selected' : '' ?>>
+                            <?= htmlspecialchars((string)$opt['label']) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+
+            <?php elseif (str_starts_with($col['Type'], 'enum(')): ?>
+                <select name="<?= htmlspecialchars($field) ?>" class="form-control" <?= $required ?>>
+                    <?php foreach (parse_enum($col['Type']) as $opt): ?>
+                        <option value="<?= htmlspecialchars($opt) ?>" <?= $val === $opt ? 'selected' : '' ?>>
+                            <?= htmlspecialchars($opt) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+
+            <?php elseif ($isPhoto): ?>
+                <?php if (!empty($val)): ?>
+                    <div style="margin-bottom: 0.5rem;">
+                        <img src="/<?= htmlspecialchars(ltrim((string)$val, '/')) ?>" alt=""
+                             style="width: 72px; height: 72px; object-fit: cover; border-radius: 8px;">
+                    </div>
+                <?php endif; ?>
+                <input type="file" name="<?= htmlspecialchars($field) ?>"
+                       accept="image/jpeg,image/png,image/webp,image/gif"
+                       data-max-bytes="<?= $maxBytes ?>"
+                       class="form-control js-photo-input">
+                <small style="color: var(--text-muted);">Формати: JPG, PNG, WEBP, GIF (до <?= $maxMb ?> МБ)</small>
+                <div class="js-file-error" style="color: var(--danger); font-size: 0.85rem; margin-top: 0.25rem; display: none;"></div>
+
+            <?php elseif (str_contains($col['Type'], 'text')): ?>
+                <textarea name="<?= htmlspecialchars($field) ?>" rows="3" class="form-control" <?= $required ?>><?= htmlspecialchars((string)$val) ?></textarea>
+
+            <?php elseif ($bounds !== null): ?>
+                <input type="number"
+                       name="<?= htmlspecialchars($field) ?>"
+                       value="<?= htmlspecialchars((string)$val) ?>"
+                       min="<?= htmlspecialchars($bounds['min']) ?>"
+                       max="<?= htmlspecialchars($bounds['max']) ?>"
+                       step="<?= htmlspecialchars($bounds['step']) ?>"
+                       class="form-control" <?= $required ?>>
+
+            <?php else: ?>
+                <?php $type = $col['Type'] === 'date' ? 'date' : 'text'; ?>
+                <input type="<?= $type ?>" name="<?= htmlspecialchars($field) ?>"
+                       value="<?= htmlspecialchars((string)$val) ?>" class="form-control"
+                       <?= $required ?> <?= $maxLen ?>>
+            <?php endif; ?>
+        </div>
+    <?php endforeach; ?>
+
+    <button type="submit" class="btn btn-primary">Зберегти</button>
+</form>
+
+<script>
+document.querySelectorAll('.js-photo-input').forEach(input => {
+    input.addEventListener('change', () => {
+        const errBox = input.parentElement.querySelector('.js-file-error');
+        const file = input.files[0];
+        errBox.style.display = 'none';
+        errBox.textContent = '';
+
+        if (!file) return;
+
+        const maxBytes = Number(input.dataset.maxBytes || 0);
+        const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
+        if (!allowed.includes(file.type)) {
+            errBox.textContent = 'Недопустимий формат. Оберіть JPG, PNG, WEBP або GIF.';
+            errBox.style.display = 'block';
+            input.value = '';
+            return;
+        }
+
+        if (maxBytes > 0 && file.size > maxBytes) {
+            const sizeMb = (file.size / 1024 / 1024).toFixed(1);
+            const maxMb = (maxBytes / 1024 / 1024).toFixed(1);
+            errBox.textContent = `Файл занадто великий (${sizeMb} МБ). Максимум — ${maxMb} МБ.`;
+            errBox.style.display = 'block';
+            input.value = '';
+        }
+    });
+});
+
+document.querySelectorAll('.pivot-box').forEach(box => {
+    const field = box.dataset.pivot;
+    const costLabel = document.getElementById('pivot-cost-' + field);
+
+    const recalc = () => {
+        if (!costLabel) return;
+        let total = 0;
+        box.querySelectorAll('.pivot-row').forEach(row => {
+            const cb = row.querySelector('input[type="checkbox"]');
+            const qty = Number(row.querySelector('.pivot-extra')?.value || 0);
+            if (cb?.checked) total += Number(cb.dataset.cost || 0) * qty;
+        });
+        const budget = Number(document.querySelector('input[name="budget"]')?.value || 0);
+        const diff = budget - total;
+        costLabel.innerHTML = `Сума: ${total.toLocaleString('uk-UA')} грн` +
+            (budget > 0 ? ` (залишок: <span style="color:${diff < 0 ? 'var(--danger)' : 'var(--success)'}">${diff.toLocaleString('uk-UA')} грн</span>)` : '');
+    };
+
+    box.querySelectorAll('.pivot-row').forEach(row => {
+        const cb = row.querySelector('input[type="checkbox"]');
+        const extra = row.querySelector('.pivot-extra');
+        extra?.addEventListener('input', () => { if (cb) cb.checked = true; recalc(); });
+        extra?.addEventListener('change', () => { if (cb) cb.checked = true; recalc(); });
+        cb?.addEventListener('change', recalc);
+    });
+
+    document.querySelector('input[name="budget"]')?.addEventListener('input', recalc);
+    recalc();
+});
+
+const startInput = document.querySelector('input[name="start_date"]');
+const endInput = document.querySelector('input[name="end_date"]');
+if (startInput && endInput) {
+    const syncDates = () => {
+        if (startInput.value) endInput.min = startInput.value;
+    };
+    startInput.addEventListener('change', syncDates);
+    syncDates();
+}
+</script>
+
+
+=========================================
+ФАЙЛ: ./views/scheme.php
+=========================================
+<?php
+echo '<thead>';
+echo '<tr>';
+foreach ($scheme['Values'][0] as $colName => $val) {
+    include 'sheets/column_head.php';
+}
+echo '</tr>';
+echo '</thead>';
+
+
+=========================================
+ФАЙЛ: ./views/reports.php
+=========================================
+<!DOCTYPE html>
+<?php include 'head.php'; ?>
+<body>
+    <?php
+    include 'menu.php';
+    $dbc = DB::get_connection();
+
+    $byExpedition = $dbc->query("
+        SELECT e.title AS expedition, r.name AS region, e.budget,
+               COUNT(DISTINCT a.id) AS artifacts_count,
+               COALESCE(SUM(a.estimated_value), 0) AS total_artifacts_value
+        FROM expeditions e
+        LEFT JOIN regions r ON r.id = e.region_id
+        LEFT JOIN artifacts a ON a.expedition_id = e.id
+        GROUP BY e.id, e.title, r.name, e.budget
+        ORDER BY total_artifacts_value DESC
+    ")->fetchAll();
+
+    $byResearcher = $dbc->query("
+        SELECT res.full_name, res.academic_degree,
+               COUNT(em.expedition_id) AS expeditions_count
+        FROM researchers res
+        LEFT JOIN expedition_members em ON em.researcher_id = res.id
+        GROUP BY res.id, res.full_name, res.academic_degree
+        ORDER BY expeditions_count DESC
+    ")->fetchAll();
+
+    $byEquipment = $dbc->query("
+        SELECT eq.name, eq.estimated_cost,
+               COALESCE(SUM(ee.count), 0) AS total_used,
+               COALESCE(SUM(ee.count), 0) * eq.estimated_cost AS total_cost
+        FROM equipment eq
+        LEFT JOIN expedition_equipment ee ON ee.equipment_id = eq.id
+        GROUP BY eq.id, eq.name, eq.estimated_cost
+        ORDER BY total_cost DESC
+    ")->fetchAll();
+    ?>
+
+    <div class="container">
+        <div class="page-header">
+            <h1 class="page-title">Зведена аналітика етнографічних експедицій</h1>
+        </div>
+
+        <div class="card">
+            <h2 class="card-title">1. Результативність експедицій та оціночна вартість знахідок</h2>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Експедиція</th>
+                        <th>Регіон</th>
+                        <th>Бюджет (грн)</th>
+                        <th>Знайдено артефактів</th>
+                        <th>Оціночна вартість знахідок (грн)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($byExpedition as $row): ?>
+                        <tr>
+                            <td><?= htmlspecialchars($row['expedition']) ?></td>
+                            <td><?= htmlspecialchars($row['region'] ?? '—') ?></td>
+                            <td><?= number_format((float)$row['budget'], 0, '.', ' ') ?></td>
+                            <td><?= (int)$row['artifacts_count'] ?></td>
+                            <td><?= number_format((float)$row['total_artifacts_value'], 0, '.', ' ') ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card">
+            <h2 class="card-title">2. Залученість наукових співробітників</h2>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>ПІБ дослідника</th>
+                        <th>Науковий ступінь</th>
+                        <th>Кількість експедицій</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($byResearcher as $row): ?>
+                        <tr>
+                            <td><?= htmlspecialchars($row['full_name']) ?></td>
+                            <td><?= htmlspecialchars($row['academic_degree'] ?? '—') ?></td>
+                            <td><?= (int)$row['expeditions_count'] ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card">
+            <h2 class="card-title">3. Використання та вартість польового спорядження</h2>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Найменування</th>
+                        <th>Ціна за од. (грн)</th>
+                        <th>Видано всього (шт.)</th>
+                        <th>Сумарна вартість (грн)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($byEquipment as $row): ?>
+                        <tr>
+                            <td><?= htmlspecialchars($row['name']) ?></td>
+                            <td><?= number_format((float)$row['estimated_cost'], 0, '.', ' ') ?></td>
+                            <td><?= (int)$row['total_used'] ?></td>
+                            <td><?= number_format((float)$row['total_cost'], 0, '.', ' ') ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>
+
+
+=========================================
+ФАЙЛ: ./db.php
+=========================================
+<?php
+declare(strict_types=1);
+
+class DB {
+    private static ?PDO $instance = null;
+
+    public static function get_connection(): PDO {
+        if (self::$instance === null) {
+            $params = require __DIR__ . "/config.php";
+            #$dsn = "{$params['rdms']}:host={$params['host']};dbname={$params['db']};charset=utf8mb4";
+            self::$instance = new PDO("{$params['rdms']}:host={$params['host']};dbname={$params['db']}", $params['user'], $params['pass'], [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_EMULATE_PREPARES => false,
+            ]);
+        }
+        return self::$instance;
+    }
+}
+
+
+=========================================
+ФАЙЛ: ./config.php
+=========================================
+<?php
+return [
+    'host' => 'localhost',
+    'user' => 'andenl',
+    'pass' => '58327',
+    'rdms' => 'mysql',
+    'db'   => 'expeditions_db',
+];
+
+
+=========================================
+ФАЙЛ: ./router.php
+=========================================
+<?php
+declare(strict_types=1);
+
+class Router {
+    /**
+     * @param array<string, array<string, callable>> $routes
+     */
+    public function __construct(
+        private array $routes = [],
+    ) {}
+
+    /**
+     * @param callable(): mixed $handler
+     */
+    public function add(string $method, string $path, callable $handler): void
+    {
+        $this->routes[$method][$path] = $handler;
+    }
+
+    public function route(string $method, string $path): void
+    {
+        $handler = $this->routes[$method][$path] ?? null;
+
+        if (!$handler) {
+            $pageTitle = "Page not found";
+            http_response_code(404);
+            include 'views/404.php';
+            return;
+        }
+
+        $handler();
+    }
+}
+
+$router = new Router();
+
+require 'routes.php';
+
+
+=========================================
+ФАЙЛ: ./routes.php
+=========================================
+<?php
+require_once 'helpers.php';
+require_once 'sql.php';
+
+$router->add('GET', '/', function () {
+    $pageTitle = "Home";
+    include 'views/home.php';
+});
+
+$router->add('GET', '/reports', function () {
+    $pageTitle = "Аналітичні звіти";
+    include 'views/reports.php';
+});
+
+$tables = [
+    'regions' => [
+        'title' => 'Regions',
+        'pk'    => 'id',
+        'columns' => [
+            'name'             => 'Назва',
+            'description'      => 'Опис',
+            'photo_path'       => 'Фото',
+            'temperature_zone' => 'Температура',
+            'humidity_level'   => 'Вологість',
+            'terrain_type'     => 'Рельєф',
+            'population'       => 'Населення',
+        ],
+    ],
+    'researchers' => [
+        'title' => 'Researchers',
+        'pk'    => 'id',
+        'columns' => [
+            'full_name'       => 'ПІБ',
+            'photo_path'      => 'Фото',
+            'academic_degree' => 'Науковий ступінь',
+            'phone'           => 'Номер телефону',
+        ],
+    ],
+    'equipment' => [
+        'title' => 'Equipment',
+        'pk'    => 'id',
+        'columns' => [
+            'name'           => 'Назва',
+            'estimated_cost' => 'Вартість',
+        ],
+    ],
+    'expeditions' => [
+        'title' => 'Expeditions',
+        'pk'    => 'id',
+        'columns' => [
+            'title'           => 'Назва',
+            'region_id'       => new Foreign('Регіон', 'regions', 'name'),
+            'budget'          => 'Бюджет',
+            'equipment_cost'  => new Subquery('Вартість спорядження', "
+                SELECT CONCAT(REPLACE(FORMAT(COALESCE(SUM(ee.count * eq.estimated_cost), 0), 2), ',', ' '), ' грн')
+                FROM expedition_equipment ee
+                JOIN equipment eq ON eq.id = ee.equipment_id
+                WHERE ee.expedition_id = expeditions.id
+            "),
+            'start_date'      => 'Початок',
+            'end_date'        => 'Кінець',
+            'members'         => new Subquery('Учасники групи', "
+                SELECT JSON_ARRAYAGG(JSON_OBJECT(
+                    'id', r.id,
+                    'label', CONCAT(r.full_name, ' (', em.researcher_role, ')')
+                ))
+                FROM expedition_members em
+                JOIN researchers r ON r.id = em.researcher_id
+                WHERE em.expedition_id = expeditions.id
+            ", 'researchers'),
+            'equipment'       => new Subquery('Спорядження', "
+                SELECT JSON_ARRAYAGG(JSON_OBJECT(
+                    'id', eq.id,
+                    'label', CONCAT(eq.name, ' — ', ee.count, ' шт.')
+                ))
+                FROM expedition_equipment ee
+                JOIN equipment eq ON eq.id = ee.equipment_id
+                WHERE ee.expedition_id = expeditions.id
+            ", 'equipment'),
+            'members_pivot'   => new Pivot(
+                'Учасники експедиції',
+                'expedition_members', 'expedition_id', 'researcher_id',
+                'researchers', 'full_name',
+                'researcher_role', 'Роль'
+            ),
+            'equipment_pivot' => new Pivot(
+                'Спорядження експедиції',
+                'expedition_equipment', 'expedition_id', 'equipment_id',
+                'equipment', 'name',
+                'count', 'Кількість', 'estimated_cost'
+            ),
+        ],
+    ],
+    'expedition_members' => [
+        'title' => 'Склад експедицій',
+        'pk'    => ['expedition_id', 'researcher_id'],
+        'columns' => [
+            'expedition_id'   => new Foreign('Експедиція', 'expeditions', 'title'),
+            'researcher_id'   => new Foreign('Дослідник', 'researchers', 'full_name'),
+            'researcher_role' => 'Роль в експедиції',
+        ],
+    ],
+    'expedition_equipment' => [
+        'title' => 'Спорядження експедицій',
+        'pk'    => ['expedition_id', 'equipment_id'],
+        'columns' => [
+            'expedition_id' => new Foreign('Експедиція', 'expeditions', 'title'),
+            'equipment_id'  => new Foreign('Спорядження', 'equipment', 'name'),
+            'count'         => 'Кількість',
+            'total_cost'    => new Subquery('Вартість', "
+                SELECT CONCAT(REPLACE(FORMAT(expedition_equipment.count * eq.estimated_cost, 2), ',', ' '), ' грн')
+                FROM equipment eq WHERE eq.id = expedition_equipment.equipment_id
+            "),
+        ],
+    ],
+    'artifacts' => [
+        'title' => 'Artifacts',
+        'pk'    => 'id',
+        'columns' => [
+            'name'              => 'Назва',
+            'expedition_id'     => new Foreign('Експедиція', 'expeditions', 'title'),
+            'description'       => 'Опис',
+            'photo_path'        => 'Фото',
+            'item_condition'    => 'Стан',
+            'estimated_century' => 'Приблизне століття',
+            'estimated_value'   => 'Орієнтовна вартість',
+        ],
+    ],
+];
+
+foreach ($tables as $table => $cfg) {
+    $pk            = $cfg['pk'];
+    $schemaColumns = $cfg['columns'];
+    $pageTitle     = $cfg['title'];
+
+    $router->add('GET', "/$table", function () use ($table, $pk, $schemaColumns, $pageTitle, $tables) {
+        $editId   = isset($_GET['edit']) && $_GET['edit'] !== '' ? (string)$_GET['edit'] : null;
+        $record   = $editId !== null ? find_one($table, $pk, $editId) : null;
+        $showForm = isset($_GET['create']) || $record !== null;
+
+        $result = select($table, $pk, $schemaColumns);
+        include 'views/crud.php';
+    });
+
+    $router->add('POST', "/$table/save", function () use ($table, $pk, $schemaColumns, $pageTitle) {
+        $editId = isset($_GET['edit']) && $_GET['edit'] !== '' ? (string)$_GET['edit'] : null;
+        try {
+            save_row($table, $pk, $schemaColumns, $_POST, $editId);
+            redirect("/$table");
+        } catch (Throwable $e) {
+            $record    = $_POST;
+            $showForm  = true;
+            $formError = $e->getMessage();
+            $result    = select($table, $pk, $schemaColumns);
+            include 'views/crud.php';
+        }
+    });
+
+    $router->add('POST', "/$table/delete", function () use ($table, $pk) {
+        $rawRedir = $_POST['_redirect'] ?? null;
+        $returnTo = ($rawRedir && str_starts_with($rawRedir, '/') && !str_starts_with($rawRedir, '//')) ? $rawRedir : "/$table";
+        try {
+            delete_row($table, $pk, (string)($_GET['id'] ?? ''));
+            redirect($returnTo);
+        } catch (PDOException) {
+            redirect($returnTo, 'Неможливо видалити запис, оскільки на нього посилаються інші таблиці.');
+        }
+    });
+}
+
+
+=========================================
+ФАЙЛ: ./helpers.php
+=========================================
+<?php
+readonly class Foreign {
+    public function __construct(
+        public string $label,
+        public string $table,
+        public string $column,
+    ) {}
+}
+
+readonly class Subquery {
+    public function __construct(
+        public string $label,
+        public string $sql,
+        public ?string $table = null,
+    ) {}
+}
+
+readonly class Pivot {
+    public function __construct(
+        public string $label,
+        public string $pivotTable,
+        public string $localKey,
+        public string $foreignKey,
+        public string $targetTable,
+        public string $targetLabel,
+        public string $extraField,
+        public string $extraLabel,
+        public ?string $costColumn = null,
+    ) {}
+}
+
+function ident(string $name): string {
+    return '`' . str_replace('`', '``', $name) . '`';
+}
+
+function parse_enum(string $type): array {
+    return str_getcsv(substr($type, 5, -1), ',', "'", "");
+}
+
+function safe_return_url(?string $target, string $fallback): string {
+    if ($target !== null && str_starts_with($target, '/') && !str_starts_with($target, '//')) {
+        return $target;
+    }
+    return $fallback;
+}
+
+function parse_size_bytes(string $val): int {
+    $val  = trim($val);
+    $unit = strtolower($val[strlen($val) - 1] ?? '');
+    $num  = (int)$val;
+    return match ($unit) {
+        'g' => $num * 1024 * 1024 * 1024,
+        'm' => $num * 1024 * 1024,
+        'k' => $num * 1024,
+        default => $num,
+    };
+}
+
+function max_upload_bytes(): int {
+    return min(
+        parse_size_bytes((string)ini_get('upload_max_filesize')),
+        parse_size_bytes((string)ini_get('post_max_size'))
+    );
+}
+
+function col_bounds(string $sqlType): ?array {
+    $unsigned = str_contains(strtolower($sqlType), 'unsigned');
+
+    if (preg_match('/^decimal\((\d+),(\d+)\)/i', $sqlType, $m)) {
+        $precision = (int)$m[1];
+        $scale     = (int)$m[2];
+        $intDigits = max(1, $precision - $scale);
+        $maxStr    = str_repeat('9', $intDigits) . ($scale > 0 ? '.' . str_repeat('9', $scale) : '');
+        $step      = $scale > 0 ? '0.' . str_repeat('0', $scale - 1) . '1' : '1';
+        return [
+            'min'  => $unsigned ? '0' : "-$maxStr",
+            'max'  => $maxStr,
+            'step' => $step,
+        ];
+    }
+
+    $intLimits = [
+        'tinyint'   => [$unsigned ? '0' : '-128', $unsigned ? '255' : '127'],
+        'smallint'  => [$unsigned ? '0' : '-32768', $unsigned ? '65535' : '32767'],
+        'mediumint' => [$unsigned ? '0' : '-8388608', $unsigned ? '16777215' : '8388607'],
+        'int'       => [$unsigned ? '0' : '-2147483648', $unsigned ? '4294967295' : '2147483647'],
+        'bigint'    => [$unsigned ? '0' : '-9223372036854775808', $unsigned ? '18446744073709551615' : '9223372036854775807'],
+    ];
+
+    foreach ($intLimits as $type => [$min, $max]) {
+        if (preg_match("/^$type\b/i", $sqlType)) {
+            return ['min' => $min, 'max' => $max, 'step' => '1'];
+        }
+    }
+
+    return null;
+}
+
+function pk_where(string|array $pk, string $rawId): array {
+    $cols   = (array)$pk;
+    $vals   = explode(':', $rawId, count($cols));
+    $where  = [];
+    $params = [];
+
+    foreach ($cols as $i => $col) {
+        $where[]           = ident($col) . " = :__pk_$i";
+        $params["__pk_$i"] = $vals[$i] ?? '';
+    }
+
+    return [implode(' AND ', $where), $params];
+}
+
+function redirect(string $uri, ?string $error = null): void {
+    $sep = str_contains($uri, '?') ? '&' : '?';
+    header('Location: ' . $uri . ($error !== null ? $sep . 'error=' . urlencode($error) : ''));
+    exit;
+}
+
+function handle_uploads(string $table): array {
+    $uploaded     = [];
+    $allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
+    foreach ($_FILES as $field => $file) {
+        if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) continue;
+        $maxBytes = max_upload_bytes();
+        if (($file['size'] ?? 0) > $maxBytes) {
+            $maxMb = round($maxBytes / 1024 / 1024, 1);
+            throw new RuntimeException("Розмір фото перевищує дозволений ліміт ({$maxMb} МБ).");
+        }
+
+        $mime = (new finfo(FILEINFO_MIME_TYPE))->file($file['tmp_name']);
+        $ext  = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        if (!in_array($mime, $allowedMimes, true) || !in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif'], true)) {
+            throw new RuntimeException('Дозволені лише зображення (JPG, PNG, WEBP, GIF).');
+        }
+
+        $relPath = "uploads/$table/" . uniqid('', true) . ".$ext";
+        $absPath = __DIR__ . "/$relPath";
+        if (!is_dir(dirname($absPath))) {
+            mkdir(dirname($absPath), 0775, true);
+        }
+
+        if (move_uploaded_file($file['tmp_name'], $absPath)) {
+            $uploaded[$field] = $relPath;
+        }
+    }
+    return $uploaded;
+}
+
+
+=========================================
+ФАЙЛ: ./styles.css
+=========================================
+:root {
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --border: #e2e8f0;
+  --text: #0f172a;
+  --text-muted: #64748b;
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --danger: #dc2626;
+  --danger-hover: #b91c1c;
+  --success: #16a34a;
+  --warning: #d97706;
+  --radius: 8px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+}
+
+/* Навігація */
+.navbar {
+  background-color: #1e293b;
+  color: #fff;
+  padding: 0.85rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+.navbar-brand {
+  font-weight: 700;
+  font-size: 1.15rem;
+  color: #fff;
+  text-decoration: none;
+}
+
+.nav-links {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.nav-link {
+  color: #cbd5e1;
+  text-decoration: none;
+  padding: 0.45rem 0.85rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  transition: 0.15s;
+}
+
+.nav-link:hover,
+.nav-link.active {
+  background-color: #334155;
+  color: #fff;
+}
+
+.container {
+  width: 97%;
+  max-width: 1680px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.page-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+/* Картки */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.card-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+/* Кнопки */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  transition: 0.15s;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: #fff;
+}
+.btn-primary:hover {
+  background: var(--primary-hover);
+}
+
+.btn-secondary {
+  background: #fff;
+  color: var(--text);
+  border-color: var(--border);
+}
+.btn-secondary:hover {
+  background: #f1f5f9;
+}
+
+.btn-danger {
+  background: var(--danger);
+  color: #fff;
+}
+
+.table {
+    width: 100%;
+    margin: 0 auto;
+    border-collapse: collapse;
+    background-color: #ffffff;
+    font-family: system-ui, -apple-system, sans-serif;
+    font-size: 14.5px;
+}
+
+.table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  margin: 24px auto;
+}
+
+.table thead {
+    background-color: #1e2130; /* під колір твоєї верхньої навігації */
+    color: #ffffff;
+}
+
+.table th,
+.table td {
+    padding: 12px 18px; /* внутрішні відступи, щоб текст не злипався */
+    text-align: left;
+    border-bottom: 1px solid #e2e8f0;
+    vertical-align: middle;
+}
+
+.table th {
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+}
+
+.table tbody tr:nth-child(even) {
+    background-color: #f8fafc; /* легка зебра для читабельності */
+}
+
+.table tbody tr:hover {
+    background-color: #eef2ff; /* підсвітка рядка при наведенні */
+}
+
+.form-group {
+  margin-bottom: 1rem;
+}
+.form-label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+  font-size: 0.9rem;
+}
+.form-control {
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-family: inherit;
+}
+.form-control:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.cell-scroll {
+  max-height: 88px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 190px;
+  max-width: 280px;
+  padding-right: 4px;
+}
+
+.cell-scroll::-webkit-scrollbar {
+  width: 5px;
+}
+.cell-scroll::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.cell-tag {
+  display: block;
+  padding: 3px 8px;
+  background: #f1f5f9;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text);
+  text-decoration: none;
+  font-size: 0.82rem;
+  line-height: 1.3;
+}
+
+.cell-tag:hover {
+  background: #e0e7ff;
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.cell-scroll {
+  max-height: 88px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 165px;
+  max-width: 240px;
+  padding-right: 4px;
+}
+
+.pivot-box {
+  max-height: 230px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #f8fafc;
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.pivot-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.35rem 0.6rem;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.pivot-check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  flex: 1;
+}
+
+.pivot-extra {
+  width: 150px;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.85rem;
+}
+
+
+=========================================
+ФАЙЛ: ./sql.php
+=========================================
+<?php
+declare(strict_types=1);
+
+require_once "helpers.php";
+
+function get_foreign(PDO $dbc, string $refTable, string $labelCol): array {
+    $t    = ident($refTable);
+    $c    = ident($labelCol);
+    $rows = $dbc->query("SELECT id, $c FROM $t")->fetchAll(PDO::FETCH_KEY_PAIR);
+
+    $res = [];
+    foreach ($rows as $id => $label) {
+        $res[$id] = [
+            'label' => $label,
+            'url'   => "/$refTable?id=$id",
+        ];
+    }
+    return $res;
+}
+
+function select(string $table, string|array $pk, array $columns, array $fixedWhere = []): array {
+    $dbc    = DB::get_connection();
+    $pkCols = (array)$pk;
+
+    $selectParts = [];
+    foreach ($pkCols as $i => $col) {
+        $selectParts[] = ident($col) . " AS `__pk_$i`";
+    }
+
+    $fks        = [];
+    $whereParts = [];
+    $params     = [];
+
+    foreach ($columns as $field => $meta) {
+        if ($meta instanceof Pivot) continue;
+        if ($meta instanceof Foreign) {
+            $selectParts[] = ident($field);
+            $fks[$field]   = get_foreign($dbc, $meta->table, $meta->column);
+        } elseif ($meta instanceof Subquery) {
+            $selectParts[] = "({$meta->sql}) AS " . ident($field);
+        } else {
+            $selectParts[] = ident($field);
+        }
+    }
+
+    if (!empty($fixedWhere)) {
+        foreach ($fixedWhere as $col => $val) {
+            $whereParts[]         = ident($col) . " = :fixed_$col";
+            $params["fixed_$col"] = $val;
+        }
+    } else {
+        if (is_string($pk) && isset($_GET['id']) && $_GET['id'] !== '') {
+            $whereParts[] = ident($pk) . ' = :id';
+            $params['id'] = (int)$_GET['id'];
+        }
+
+        $q = trim((string)($_GET['q'] ?? ''));
+        if ($q !== '') {
+            $likeParts = [];
+            $idx       = 0;
+            foreach ($columns as $field => $meta) {
+                if (is_string($meta) && !str_contains($field, '_path')) {
+                    $paramKey          = "q_$idx";
+                    $likeParts[]       = ident($field) . " LIKE :$paramKey";
+                    $params[$paramKey] = "%$q%";
+                    $idx++;
+                }
+            }
+            if ($likeParts) {
+                $whereParts[] = '(' . implode(' OR ', $likeParts) . ')';
+            }
+        }
+
+        foreach ($columns as $field => $meta) {
+            if ($meta instanceof Foreign && isset($_GET[$field]) && $_GET[$field] !== '') {
+                $whereParts[]       = ident($field) . " = :f_$field";
+                $params["f_$field"] = (int)$_GET[$field];
+            }
+        }
+    }
+
+    $where      = $whereParts ? 'WHERE ' . implode(' AND ', $whereParts) : '';
+    $currentDir = strtoupper($_GET['dir'] ?? 'ASC') === 'ASC' ? 'ASC' : 'DESC';
+    $orderCols  = array_map(fn($c) => ident($c) . " $currentDir", $pkCols);
+    $orderBy    = $orderCols ? 'ORDER BY ' . implode(', ', $orderCols) : '';
+
+    $attributes = implode(', ', $selectParts);
+    $tableIdent = ident($table);
+
+    $query = $dbc->prepare("SELECT $attributes FROM $tableIdent $where $orderBy");
+    $query->execute($params);
+    $items = $query->fetchAll(PDO::FETCH_ASSOC);
+    $query->closeCursor();
+
+    $result = [];
+    foreach ($columns as $field => $meta) {
+        if ($meta instanceof Pivot) continue;
+        $header = is_string($meta) ? $meta : $meta->label;
+        $values = array_column($items, $field);
+
+        if (isset($fks[$field])) {
+            $values = array_map(fn($id) => $fks[$field][$id] ?? 'Не визначено', $values);
+        } elseif ($meta instanceof Subquery && $meta->table !== null) {
+            $values = array_map(function ($json) use ($meta) {
+                $rows = $json ? json_decode((string)$json, true) : [];
+                return array_map(fn($r) => [
+                    'label' => $r['label'],
+                    'url'   => "/{$meta->table}?id={$r['id']}",
+                ], $rows ?: []);
+            }, $values);
+        }
+
+        $result[$header] = $values;
+    }
+
+    if ($pkCols) {
+        $result['__id'] = array_map(
+            fn($row) => implode(':', array_map(fn($i) => (string)$row["__pk_$i"], array_keys($pkCols))),
+            $items
+        );
+    }
+
+    return $result;
+}
+
+function get_scheme(string $table): array {
+    $dbc = DB::get_connection();
+    return $dbc->query('DESCRIBE ' . ident($table))->fetchAll(PDO::FETCH_ASSOC);
+}
+
+function find_one(string $table, string|array $pk, string $rawId): ?array {
+    $dbc = DB::get_connection();
+    [$whereSql, $params] = pk_where($pk, $rawId);
+    $stmt = $dbc->prepare('SELECT * FROM ' . ident($table) . " WHERE $whereSql");
+    $stmt->execute($params);
+    return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+}
+
+function save_row(string $table, string|array $pk, array $columns, array $data, ?string $rawId = null): void {
+    $dbc    = DB::get_connection();
+    $scheme = get_scheme($table);
+    $data   = array_merge($data, handle_uploads($table));
+
+    $values = [];
+    foreach ($scheme as $col) {
+        $f = $col['Field'];
+        if (str_contains($col['Extra'], 'auto_increment') || !array_key_exists($f, $data)) continue;
+
+        $raw = is_string($data[$f]) ? trim($data[$f]) : $data[$f];
+
+        if ($raw === '' || $raw === null) {
+            if ($col['Null'] === 'NO' && $col['Default'] === null) {
+                throw new RuntimeException("Поле «{$f}» є обов'язковим для заповнення.");
+            }
+            $values[$f] = null;
+            continue;
+        }
+
+        if (str_starts_with($col['Type'], 'enum(') && !in_array($raw, parse_enum($col['Type']), true)) {
+            throw new RuntimeException("Недопустиме значення для поля «{$f}».");
+        }
+
+        $bounds = col_bounds($col['Type']);
+        if ($bounds !== null) {
+            if (!is_numeric($raw) || (float)$raw < (float)$bounds['min'] || (float)$raw > (float)$bounds['max']) {
+                throw new RuntimeException("Значення поля «{$f}» виходить за межі [{$bounds['min']} .. {$bounds['max']}].");
+            }
+        }
+
+        if (preg_match('/^varchar\((\d+)\)/i', $col['Type'], $m) && mb_strlen((string)$raw) > (int)$m[1]) {
+            throw new RuntimeException("Поле «{$f}» перевищує максимум у {$m[1]} символів.");
+        }
+
+        $values[$f] = $raw;
+    }
+
+    if (!empty($values['start_date']) && !empty($values['end_date']) && $values['end_date'] < $values['start_date']) {
+        throw new RuntimeException('Дата завершення експедиції не може бути раніше дати початку.');
+    }
+
+    $dbc->beginTransaction();
+    try {
+        if ($rawId === null || $rawId === '') {
+            $cols         = implode(', ', array_map('ident', array_keys($values)));
+            $placeholders = implode(', ', array_map(fn($k) => ":$k", array_keys($values)));
+            $sql          = 'INSERT INTO ' . ident($table) . " ($cols) VALUES ($placeholders)";
+            $dbc->prepare($sql)->execute($values);
+            $parentId = (string)$dbc->lastInsertId();
+        } else {
+            [$whereSql, $pkParams] = pk_where($pk, $rawId);
+            $sets = implode(', ', array_map(fn($k) => ident($k) . " = :$k", array_keys($values)));
+            $sql  = 'UPDATE ' . ident($table) . " SET $sets WHERE $whereSql";
+            $dbc->prepare($sql)->execute(array_merge($values, $pkParams));
+            $parentId = $rawId;
+        }
+
+        foreach ($columns as $field => $meta) {
+            if (!($meta instanceof Pivot)) continue;
+
+            $pivotScheme = array_column(get_scheme($meta->pivotTable), null, 'Field');
+            $extraCol    = $pivotScheme[$meta->extraField] ?? null;
+
+            $del = $dbc->prepare('DELETE FROM ' . ident($meta->pivotTable) . ' WHERE ' . ident($meta->localKey) . ' = :pid');
+            $del->execute(['pid' => $parentId]);
+
+            $submitted = is_array($data[$field] ?? null) ? $data[$field] : [];
+            $ins = $dbc->prepare(
+                'INSERT INTO ' . ident($meta->pivotTable) .
+                ' (' . ident($meta->localKey) . ', ' . ident($meta->foreignKey) . ', ' . ident($meta->extraField) . ')' .
+                ' VALUES (:pid, :fid, :extra)'
+            );
+
+            foreach ($submitted as $targetId => $row) {
+                if (empty($row['checked'])) continue;
+
+                $extraVal = trim((string)($row['extra'] ?? ''));
+                if ($extraVal === '') {
+                    throw new RuntimeException("Вкажіть «{$meta->extraLabel}» для всіх обраних позицій.");
+                }
+
+                if ($extraCol) {
+                    if (str_starts_with($extraCol['Type'], 'enum(') && !in_array($extraVal, parse_enum($extraCol['Type']), true)) {
+                        throw new RuntimeException("Недопустиме значення «{$meta->extraLabel}».");
+                    }
+                    $b = col_bounds($extraCol['Type']);
+                    if ($b !== null && (!is_numeric($extraVal) || (float)$extraVal < max(1, (float)$b['min']) || (float)$extraVal > (float)$b['max'])) {
+                        throw new RuntimeException("Кількість у «{$meta->label}» має бути від 1 до {$b['max']}.");
+                    }
+                }
+
+                $ins->execute([
+                    'pid'   => (int)$parentId,
+                    'fid'   => (int)$targetId,
+                    'extra' => $extraVal,
+                ]);
+            }
+        }
+
+        $dbc->commit();
+    } catch (Throwable $e) {
+        if ($dbc->inTransaction()) $dbc->rollBack();
+        if ($e instanceof PDOException && $e->getCode() === '23000') {
+            throw new RuntimeException('Порушено цілісність даних або дублікат запису.');
+        }
+        throw $e;
+    }
+}
+
+function delete_row(string $table, string|array $pk, string $rawId): void {
+    $dbc = DB::get_connection();
+    [$whereSql, $params] = pk_where($pk, $rawId);
+    $stmt = $dbc->prepare('DELETE FROM ' . ident($table) . " WHERE $whereSql");
+    $stmt->execute($params);
+}
+
+

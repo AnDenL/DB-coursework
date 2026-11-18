@@ -1,11 +1,32 @@
-<?php if (str_contains($colName, '_path')): ?>
+<?php $cell = $result[$colName][$i] ?? null; ?>
+
+<?php if (str_contains($colName, 'Фото')): ?>
     <td>
-        <img src="<?= htmlspecialchars((string)($result[$colName][$i] ?? '—')) ?>"
-            alt="<?= htmlspecialchars((string)($result[$colName][$i] ?? '—')) ?>"
-            style="width: 54px; height: 54px; object-fit: cover; border-radius: 25%; border: 1px solid #ccc;">
+        <?php if (!empty($cell)): ?>
+            <img src="/<?= htmlspecialchars(ltrim((string)$cell, '/')) ?>"
+                 alt="<?= htmlspecialchars((string)$cell) ?>"
+                 style="width: 54px; height: 54px; object-fit: cover; border-radius: 25%; border: 1px solid #ccc;">
+        <?php else: ?>
+            —
+        <?php endif; ?>
     </td>
-<?php else : ?>
+<?php elseif (is_array($cell)): ?>
     <td>
-        <?= htmlspecialchars((string)($result[$colName][$i] ?? '—')) ?>
+        <?php $links = isset($cell['url']) ? [$cell] : $cell; ?>
+        <?php if (empty($links)): ?>
+            <span style="color: var(--text-muted);">Не визначено</span>
+        <?php else: ?>
+            <div class="cell-scroll">
+                <?php foreach ($links as $l): ?>
+                    <a href="<?= htmlspecialchars($l['url']) ?>" class="cell-tag">
+                        <?= htmlspecialchars((string)$l['label']) ?>
+                    </a>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
+    </td>
+<?php else: ?>
+    <td>
+        <?= htmlspecialchars((string)($cell ?? 'Не визначено')) ?>
     </td>
 <?php endif; ?>

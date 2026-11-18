@@ -1,3 +1,1 @@
-<td>
-    <?= htmlspecialchars((string)($colName ?? '—')) ?>
-</td>
+<th><?= htmlspecialchars((string)($colName ?? '—')) ?></th>
