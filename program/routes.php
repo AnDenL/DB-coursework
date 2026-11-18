@@ -1,5 +1,6 @@
 <?php
 require_once 'helpers.php';
+require_once 'sql.php';
 
 $router->add('GET' ,'/', function () {
     $pageTitle = "Home";
@@ -10,23 +11,7 @@ $router->add('GET' ,'/', function () {
 $router->add('GET' ,'/regions', function () {
     $pageTitle = "Regions";
 
-    $table  = 'regions';
-    $where  = '';
-    $pk          = 'id';
-    $currentSort = $pk;
-    $currentDir  = strtoupper(get_str('dir')) === 'ASC' ? 'ASC' : 'DESC';
-
-    $orderBy = $currentSort !== '' ? 'ORDER BY ' . ident($currentSort) . " $currentDir" : '';
-
-    $dbc = DB::get_connection();
-
-    $stmt = $dbc->query("DESCRIBE `$table`");
-    $scheme = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    $query = $dbc->prepare("SELECT * FROM $table $where $orderBy");
-    $query->execute();
-    $items = $query->fetchAll(PDO::FETCH_OBJ);
-    $query->closeCursor();
+    $result = select('regions', 'id');
 
     include 'views/crud.php';
 });
@@ -34,25 +19,32 @@ $router->add('GET' ,'/regions', function () {
 $router->add('GET' ,'/researchers', function () {
     $pageTitle = "Researchers";
 
-    $table  = 'researchers';
-    $where  = '';
-    $pk          = 'id';
-    $currentSort = $pk;
-    $currentDir  = strtoupper(get_str('dir')) === 'ASC' ? 'ASC' : 'DESC';
+    $result = select('researchers', 'id');
 
-    $orderBy = $currentSort !== '' ? 'ORDER BY ' . ident($currentSort) . " $currentDir" : '';
+    include 'views/crud.php';
+});
 
-    $dbc = DB::get_connection();
 
-    $stmt = $dbc->query("DESCRIBE `$table`");
-    $columns = array_column($stmt->fetchAll(PDO::FETCH_ASSOC), null, 'Field');
+$router->add('GET' ,'/equipment', function () {
+    $pageTitle = "Equipment";
 
-    $query = $dbc->prepare("SELECT * FROM $table $where $orderBy");
-    $query->execute();
-    $items = $query->fetchAll(PDO::FETCH_ASSOC);
-    $query->closeCursor();
+    $result = select('equipment', 'id');
 
-    $scheme['Values'] = $items;
+    include 'views/crud.php';
+});
+
+$router->add('GET' ,'/expeditions', function () {
+    $pageTitle = "Expeditions";
+
+    $result = select('expeditions', 'id');
+
+    include 'views/crud.php';
+});
+
+$router->add('GET' ,'/artifacts', function () {
+    $pageTitle = "Artifacts";
+
+    $result = select('artifacts', 'id');
 
     include 'views/crud.php';
 });

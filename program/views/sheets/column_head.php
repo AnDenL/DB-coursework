@@ -1,3 +1,3 @@
-<td class="card">
+<td>
     <?= htmlspecialchars((string)($colName ?? '—')) ?>
 </td>
