@@ -116,6 +116,14 @@ document.querySelectorAll('[data-open-pivot]').forEach(btn => {
     });
 });
 
+document.addEventListener('submit', e => {
+    const btn = e.target.querySelector('button[type="submit"]');
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Збереження...';
+    }
+});
+
 document.querySelectorAll('.pivot-modal').forEach(dialog => {
     const field       = dialog.dataset.pivot;
     const countEl     = document.getElementById('pivot-count-' + field);

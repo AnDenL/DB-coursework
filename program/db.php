@@ -81,6 +81,10 @@ class DB {
     }
 
     public static function connect(string $user, string $pass): PDO {
+        if (strtolower(trim($user)) === 'root') {
+            throw new RuntimeException('Вхід під цим користувачем заборонено.');
+        }
+
         $params = require __DIR__ . '/config.php';
         $socket = getenv('MYSQL_UNIX_PORT');
         $dsn    = $socket

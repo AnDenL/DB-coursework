@@ -4,7 +4,7 @@ USE expeditions_db;
 
 CREATE TABLE regions (
     id SERIAL PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
+    name VARCHAR(100) NOT NULL UNIQUE,
     description MEDIUMTEXT,      -- can be without description
     photo_path VARCHAR(255),     -- photo is optional
     temperature_zone ENUM('Freezing', 'Cold', 'Temperate', 'Warm', 'Scorching') NOT NULL,
@@ -18,18 +18,18 @@ CREATE TABLE researchers (
     full_name VARCHAR(120) NOT NULL,
     photo_path VARCHAR(255) NOT NULL,
     academic_degree VARCHAR(80) NOT NULL,
-    phone VARCHAR(20) NOT NULL
+    phone VARCHAR(20) NOT NULL UNIQUE
 );
 
 CREATE TABLE equipment (
     id SERIAL PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
+    name VARCHAR(100) NOT NULL UNIQUE,
     estimated_cost DECIMAL(10, 2) NOT NULL
 );
 
 CREATE TABLE expeditions (
     id SERIAL PRIMARY KEY,
-    title VARCHAR(100) NOT NULL,
+    title VARCHAR(100) NOT NULL UNIQUE,
     region_id BIGINT UNSIGNED NOT NULL,
     budget DECIMAL(10, 2) NOT NULL,
     start_date DATE NOT NULL,
