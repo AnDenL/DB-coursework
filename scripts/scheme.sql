@@ -5,11 +5,12 @@ USE expeditions_db;
 CREATE TABLE regions (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
-    description MEDIUMTEXT,     -- can be without description
+    description MEDIUMTEXT,      -- can be without description
+    photo_path VARCHAR(255),     -- photo is optional
     temperature_zone ENUM('Freezing', 'Cold', 'Temperate', 'Warm', 'Scorching') NOT NULL,
     humidity_level ENUM('Arid', 'Dry', 'Moderate', 'Humid', 'Swampy') NOT NULL,
     terrain_type ENUM('Forest', 'Mountains', 'Plains', 'Swamp', 'Coast', 'Underground', 'Desert') NOT NULL,
-    photo_path VARCHAR(255)     -- photo is optional
+    population INT UNSIGNED NOT NULL
 );
 
 CREATE TABLE researchers (
@@ -30,7 +31,7 @@ CREATE TABLE expeditions (
     id SERIAL PRIMARY KEY,
     title VARCHAR(100) NOT NULL,
     region_id BIGINT UNSIGNED NOT NULL,
-    budget INT UNSIGNED NOT NULL,
+    budget DECIMAL(10, 2) NOT NULL,
     start_date DATE NOT NULL,
     end_date DATE,              -- NULL = expedition haven't ended yet
 

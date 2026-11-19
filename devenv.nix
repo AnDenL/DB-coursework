@@ -17,19 +17,21 @@
 
   # https://devenv.sh/services/
   services.mysql = {
-    enable = true;
-    package = pkgs.mariadb;
+      enable = true;
+      package = pkgs.mariadb;
 
-    initialDatabases = [{ name = "expeditions_db"; }];
+      initialDatabases = [{ name = "expeditions_db"; }];
 
-    ensureUsers = [{
-      name = "andenl";
-      password = "58327";
-      ensurePermissions = {
-        "expeditions_db.*" = "SELECT, INSERT, UPDATE, DELETE";
-      };
-    }];
-  };
+      ensureUsers = [
+        {
+          name = "guest";
+          password = "guest";
+          ensurePermissions = {
+            "expeditions_db.*" = "SELECT";
+          };
+        }
+      ];
+    };
 
   # https://devenv.sh/scripts/
   scripts.hello.exec = ''
