@@ -3,12 +3,10 @@ declare(strict_types=1);
 
 ini_set('display_errors', '0');
 
-if (PHP_SAPI !== 'cli' && session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
 require_once "db.php";
-DB::init_session(900);
+if (PHP_SAPI !== 'cli') {
+    DB::init_session(900);
+}
 ob_start(function (string $html): string {
     $token = htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8');
     $field = '<input type="hidden" name="csrf_token" value="' . $token . '">';

@@ -38,6 +38,49 @@ function parse_enum(string $type): array {
     return str_getcsv(substr($type, 5, -1), ',', "'", "");
 }
 
+function enum_label(string $val): string {
+    static $map = [
+        
+        'Arctic'       => 'Арктичний',
+        'Cold'         => 'Холодний',
+        'Temperate'    => 'Помірний',
+        'Warm'         => 'Теплий',
+        'Hot'          => 'Спекотний',
+        'Tropical'     => 'Тропічний',
+        
+        'Arid'         => 'Посушливий',
+        'Dry'          => 'Сухий',
+        'Moderate'     => 'Помірний',
+        'Humid'        => 'Вологий',
+        'Swampy'       => 'Болотистий',
+        
+        'Plains'       => 'Рівнини',
+        'Steppe'       => 'Степ',
+        'Forest'       => 'Ліс',
+        'Mountains'    => 'Гори',
+        'Swamp'        => 'Болото',
+        'Desert'       => 'Пустеля',
+        'Coast'        => 'Узбережжя',
+        'Underground'  => 'Підземелля',
+        
+        'Excellent'    => 'Відмінний',
+        'Good'         => 'Добрий',
+        'Fair'         => 'Задовільний',
+        'Poor'         => 'Поганий',
+        'Damaged'      => 'Пошкоджений',
+        'Fragmented'   => 'Фрагментований',
+        'Restored'     => 'Реставрований',
+        
+        'Leader'       => 'Керівник експедиції',
+        'Ethnographer' => 'Етнограф',
+        'Folklorist'   => 'Фольклорист',
+        'Photographer' => 'Фотограф',
+        'Archivist'    => 'Архіваріус',
+        'Assistant'    => 'Асистент',
+    ];
+    return $map[$val] ?? $val;
+}
+
 function safe_return_url(?string $target, string $fallback): string {
     if ($target !== null && str_starts_with($target, '/') && !str_starts_with($target, '//')) {
         return $target;

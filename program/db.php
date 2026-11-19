@@ -49,7 +49,7 @@ class DB {
         }
     }
 
-    public static function init_session(): void {
+    public static function init_session(int $ttl = 900): void {
         if (session_status() === PHP_SESSION_NONE) {
             session_set_cookie_params([
                 'httponly' => true,
@@ -66,6 +66,7 @@ class DB {
             if ($last > 0 && (time() - $last) > $ttl) {
                 $_SESSION = [];
                 session_regenerate_id(true);
+                $_SESSION['csrf_token']    = bin2hex(random_bytes(32));
                 $_SESSION['flash_warning'] = 'Сесію завершено через 15 хвилин неактивності (виконано автоматичний вихід).';
                 return;
             }
@@ -74,7 +75,9 @@ class DB {
     }
 
     private static function ensure_session(): void {
-        self::init_session();
+        if (session_status() === PHP_SESSION_NONE) {
+            self::init_session();
+        }
     }
 
     public static function connect(string $user, string $pass): PDO {

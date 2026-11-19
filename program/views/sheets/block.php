@@ -27,6 +27,6 @@
     </td>
 <?php else: ?>
     <td>
-        <?= htmlspecialchars((string)($cell ?? 'Не визначено')) ?>
+        <?= $cell !== null ? htmlspecialchars(enum_label((string)$cell)) : 'Не визначено' ?>
     </td>
 <?php endif; ?>

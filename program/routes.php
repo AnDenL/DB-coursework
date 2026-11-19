@@ -170,7 +170,7 @@ foreach ($tables as $table => $cfg) {
 
     $router->add('POST', "/$table/delete", function () use ($table, $pk) {
         $rawRedir = $_POST['_redirect'] ?? null;
-        $returnTo = ($rawRedir && str_starts_with($rawRedir, '/') && !str_starts_with($rawRedir, '//')) ? $rawRedir : "/$table";
+        $returnTo = safe_return_url($_POST['_redirect'] ?? null, "/$table");
         try {
             delete_row($table, $pk, (string)($_GET['id'] ?? ''));
             redirect($returnTo);
@@ -184,7 +184,6 @@ foreach ($tables as $table => $cfg) {
 }
 
 $router->add('POST', '/login', function () {
-    if (session_status() === PHP_SESSION_NONE) session_start();
     $cfg  = require __DIR__ . '/config.php';
     $user = trim((string)($_POST['db_user'] ?? ''));
     $pass = (string)($_POST['db_pass'] ?? '');
@@ -212,9 +211,10 @@ $router->add('POST', '/login', function () {
 });
 
 $router->add('POST', '/logout', function () {
-    if (session_status() === PHP_SESSION_NONE) session_start();
     $back = safe_return_url($_POST['_redirect'] ?? null, '/expeditions');
+    DB::remove_presence();
     $_SESSION = [];
+    setcookie('db_key', '', ['expires' => time() - 3600, 'path' => '/']);
     session_destroy();
     redirect($back);
 });

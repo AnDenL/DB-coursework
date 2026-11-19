@@ -35,12 +35,12 @@ $canWrite = DB::can_write();
             </form>
         <?php endif; ?>
     </div>
-    <?php if (!empty($_SESSION['flash_warning'])): ?>
-        <div class="container" style="margin-bottom: 0;">
-            <div class="card" style="border-color: var(--warning); color: var(--warning); font-weight: 500; margin-bottom: 0;">
-                <?= htmlspecialchars((string)$_SESSION['flash_warning']) ?>
-            </div>
-        </div>
-        <?php unset($_SESSION['flash_warning']); ?>
-    <?php endif; ?>
 </div>
+<?php if (!empty($_SESSION['flash_warning'])): ?>
+    <div class="container" style="margin-bottom: 0;">
+        <div class="card" style="border-color: var(--warning); color: var(--warning); font-weight: 500; margin-bottom: 0;">
+            <?= htmlspecialchars((string)$_SESSION['flash_warning']) ?>
+        </div>
+    </div>
+    <?php unset($_SESSION['flash_warning']); ?>
+<?php endif; ?>
