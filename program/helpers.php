@@ -40,43 +40,37 @@ function parse_enum(string $type): array {
 
 function enum_label(string $val): string {
     static $map = [
-        
-        'Arctic'       => 'Арктичний',
+
+        'Freezing'     => 'Дужк холодний',
         'Cold'         => 'Холодний',
         'Temperate'    => 'Помірний',
         'Warm'         => 'Теплий',
-        'Hot'          => 'Спекотний',
-        'Tropical'     => 'Тропічний',
-        
+        'Scorching'    => 'Спекотний',
+
         'Arid'         => 'Посушливий',
         'Dry'          => 'Сухий',
         'Moderate'     => 'Помірний',
         'Humid'        => 'Вологий',
         'Swampy'       => 'Болотистий',
-        
+
         'Plains'       => 'Рівнини',
-        'Steppe'       => 'Степ',
         'Forest'       => 'Ліс',
         'Mountains'    => 'Гори',
         'Swamp'        => 'Болото',
         'Desert'       => 'Пустеля',
         'Coast'        => 'Узбережжя',
         'Underground'  => 'Підземелля',
-        
-        'Excellent'    => 'Відмінний',
+
         'Good'         => 'Добрий',
-        'Fair'         => 'Задовільний',
-        'Poor'         => 'Поганий',
-        'Damaged'      => 'Пошкоджений',
-        'Fragmented'   => 'Фрагментований',
-        'Restored'     => 'Реставрований',
-        
+        'Mediocre'     => 'Задовільний',
+        'Needs restoration' => 'Потребує реставрації',
+
         'Leader'       => 'Керівник експедиції',
-        'Ethnographer' => 'Етнограф',
+        'Restorer'     => 'Реставратор',
         'Folklorist'   => 'Фольклорист',
-        'Photographer' => 'Фотограф',
+        'Bodyguard'    => 'Охоронець',
         'Archivist'    => 'Архіваріус',
-        'Assistant'    => 'Асистент',
+        'Collector'    => 'Збирач',
     ];
     return $map[$val] ?? $val;
 }

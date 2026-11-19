@@ -69,141 +69,141 @@
     </div>
     <?php include 'footer.php'; ?>
 
-    <script>
-    document.querySelectorAll('.js-photo-input').forEach(input => {
-        input.addEventListener('change', () => {
-            const errBox = input.parentElement.querySelector('.js-file-error');
-            const file = input.files[0];
-            if (errBox) {
-                errBox.style.display = 'none';
-                errBox.textContent = '';
-            }
-            if (!file) return;
+<script>
+document.querySelectorAll('.js-photo-input').forEach(input => {
+    input.addEventListener('change', () => {
+        const errBox = input.parentElement.querySelector('.js-file-error');
+        const file = input.files[0];
+        if (errBox) {
+            errBox.style.display = 'none';
+            errBox.textContent = '';
+        }
+        if (!file) return;
 
-            const maxBytes = Number(input.dataset.maxBytes || 0);
-            const allowed  = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-            let msg = '';
+        const maxBytes = Number(input.dataset.maxBytes || 0);
+        const allowed  = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+        let msg = '';
 
-            if (!allowed.includes(file.type)) {
-                msg = 'Недопустимий формат. Оберіть JPG, PNG, WEBP або GIF.';
-            } else if (maxBytes > 0 && file.size > maxBytes) {
-                msg = `Файл занадто великий (${(file.size / 1024 / 1024).toFixed(1)} МБ). Максимум — ${(maxBytes / 1024 / 1024).toFixed(1)} МБ.`;
-            }
-
-            if (msg) {
-                if (errBox) {
-                    errBox.textContent = msg;
-                    errBox.style.display = 'block';
-                } else {
-                    alert(msg);
-                }
-                input.value = '';
-            }
-        });
-    });
-
-    document.querySelectorAll('[data-open-pivot]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const dialog = document.getElementById(btn.dataset.openPivot);
-            if (!dialog) return;
-            dialog.showModal();
-            const search = dialog.querySelector('.pivot-search');
-            if (search) {
-                search.value = '';
-                search.dispatchEvent(new Event('input'));
-                search.focus();
-            }
-        });
-    });
-
-    document.querySelectorAll('.pivot-modal').forEach(dialog => {
-        const field       = dialog.dataset.pivot;
-        const countEl     = document.getElementById('pivot-count-' + field);
-        const costEl      = document.getElementById('pivot-cost-' + field);
-        const cellCostEl  = dialog.dataset.costTarget ? document.getElementById(dialog.dataset.costTarget) : null;
-        const summaryEl   = dialog.querySelector('.pivot-modal-summary');
-        const searchInput = dialog.querySelector('.pivot-search');
-
-        const recalc = () => {
-            let count = 0;
-            let total = 0;
-            dialog.querySelectorAll('.pivot-row').forEach(row => {
-                const cb  = row.querySelector('input[type="checkbox"]');
-                const qty = Number(row.querySelector('.pivot-extra')?.value || 0);
-                if (cb?.checked) {
-                    count++;
-                    total += Number(cb.dataset.cost || 0) * qty;
-                }
-            });
-
-            if (countEl) countEl.textContent = String(count);
-
-            const budget = Number(document.querySelector('input[name="budget"]')?.value || 0);
-            const diff   = budget - total;
-
-            if (costEl) {
-                costEl.innerHTML = `Сума: ${total.toLocaleString('uk-UA')} грн` +
-                    (budget > 0 ? ` (залишок: <span style="color:${diff < 0 ? 'var(--danger)' : 'var(--success)'}">${diff.toLocaleString('uk-UA')} грн</span>)` : '');
-            }
-            if (cellCostEl) {
-                cellCostEl.textContent = total.toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' грн';
-            }
-            if (summaryEl) {
-                summaryEl.textContent = costEl
-                    ? `Обрано позицій: ${count} · Сума: ${total.toLocaleString('uk-UA')} грн`
-                    : `Обрано позицій: ${count}`;
-            }
-        };
-
-        dialog.querySelectorAll('.pivot-row').forEach(row => {
-            const cb    = row.querySelector('input[type="checkbox"]');
-            const extra = row.querySelector('.pivot-extra');
-
-            const syncRow = () => {
-                if (!extra || !cb) return;
-                extra.hidden   = !cb.checked;
-                extra.disabled = !cb.checked;
-            };
-
-            cb?.addEventListener('change', () => { syncRow(); recalc(); });
-            extra?.addEventListener('input', recalc);
-            extra?.addEventListener('change', recalc);
-            syncRow();
-        });
-
-        if (searchInput) {
-            searchInput.addEventListener('keydown', e => {
-                if (e.key === 'Enter') e.preventDefault();
-            });
-            searchInput.addEventListener('input', () => {
-                const q = searchInput.value.trim().toLowerCase();
-                dialog.querySelectorAll('.pivot-row').forEach(row => {
-                    const label = row.dataset.label || '';
-                    row.style.display = (q === '' || label.includes(q)) ? '' : 'none';
-                });
-            });
+        if (!allowed.includes(file.type)) {
+            msg = 'Недопустимий формат. Оберіть JPG, PNG, WEBP або GIF.';
+        } else if (maxBytes > 0 && file.size > maxBytes) {
+            msg = `Файл занадто великий (${(file.size / 1024 / 1024).toFixed(1)} МБ). Максимум — ${(maxBytes / 1024 / 1024).toFixed(1)} МБ.`;
         }
 
-        dialog.querySelectorAll('[data-close-pivot]').forEach(btn => {
-            btn.addEventListener('click', () => dialog.close());
-        });
-        dialog.addEventListener('click', e => {
-            if (e.target === dialog) dialog.close();
+        if (msg) {
+            if (errBox) {
+                errBox.textContent = msg;
+                errBox.style.display = 'block';
+            } else {
+                alert(msg);
+            }
+            input.value = '';
+        }
+    });
+});
+
+document.querySelectorAll('[data-open-pivot]').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const dialog = document.getElementById(btn.dataset.openPivot);
+        if (!dialog) return;
+        dialog.showModal();
+        const search = dialog.querySelector('.pivot-search');
+        if (search) {
+            search.value = '';
+            search.dispatchEvent(new Event('input'));
+            search.focus();
+        }
+    });
+});
+
+document.querySelectorAll('.pivot-modal').forEach(dialog => {
+    const field       = dialog.dataset.pivot;
+    const countEl     = document.getElementById('pivot-count-' + field);
+    const costEl      = document.getElementById('pivot-cost-' + field);
+    const cellCostEl  = dialog.dataset.costTarget ? document.getElementById(dialog.dataset.costTarget) : null;
+    const summaryEl   = dialog.querySelector('.pivot-modal-summary');
+    const searchInput = dialog.querySelector('.pivot-search');
+
+    const recalc = () => {
+        let count = 0;
+        let total = 0;
+        dialog.querySelectorAll('.pivot-row').forEach(row => {
+            const cb  = row.querySelector('input[type="checkbox"]');
+            const qty = Number(row.querySelector('.pivot-extra')?.value || 0);
+            if (cb?.checked) {
+                count++;
+                total += Number(cb.dataset.cost || 0) * qty;
+            }
         });
 
-        document.querySelector('input[name="budget"]')?.addEventListener('input', recalc);
-        recalc();
+        if (countEl) countEl.textContent = String(count);
+
+        const budget = Number(document.querySelector('input[name="budget"]')?.value || 0);
+        const diff   = budget - total;
+
+        if (costEl) {
+            costEl.innerHTML = `Сума: ${total.toLocaleString('uk-UA')} грн` +
+                (budget > 0 ? ` (залишок: <span style="color:${diff < 0 ? 'var(--danger)' : 'var(--success)'}">${diff.toLocaleString('uk-UA')} грн</span>)` : '');
+        }
+        if (cellCostEl) {
+            cellCostEl.textContent = total.toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' грн';
+        }
+        if (summaryEl) {
+            summaryEl.textContent = costEl
+                ? `Обрано позицій: ${count} · Сума: ${total.toLocaleString('uk-UA')} грн`
+                : `Обрано позицій: ${count}`;
+        }
+    };
+
+    dialog.querySelectorAll('.pivot-row').forEach(row => {
+        const cb    = row.querySelector('input[type="checkbox"]');
+        const extra = row.querySelector('.pivot-extra');
+
+        const syncRow = () => {
+            if (!extra || !cb) return;
+            extra.hidden   = !cb.checked;
+            extra.disabled = !cb.checked;
+        };
+
+        cb?.addEventListener('change', () => { syncRow(); recalc(); });
+        extra?.addEventListener('input', recalc);
+        extra?.addEventListener('change', recalc);
+        syncRow();
     });
 
-    const startInput = document.querySelector('input[name="start_date"]');
-    const endInput   = document.querySelector('input[name="end_date"]');
-    if (startInput && endInput) {
-        const syncDates = () => {
-            if (startInput.value) endInput.min = startInput.value;
-        };
-        startInput.addEventListener('change', syncDates);
-        syncDates();
+    if (searchInput) {
+        searchInput.addEventListener('keydown', e => {
+            if (e.key === 'Enter') e.preventDefault();
+        });
+        searchInput.addEventListener('input', () => {
+            const q = searchInput.value.trim().toLowerCase();
+            dialog.querySelectorAll('.pivot-row').forEach(row => {
+                const label = row.dataset.label || '';
+                row.style.display = (q === '' || label.includes(q)) ? '' : 'none';
+            });
+        });
     }
-    </script>
+
+    dialog.querySelectorAll('[data-close-pivot]').forEach(btn => {
+        btn.addEventListener('click', () => dialog.close());
+    });
+    dialog.addEventListener('click', e => {
+        if (e.target === dialog) dialog.close();
+    });
+
+    document.querySelector('input[name="budget"]')?.addEventListener('input', recalc);
+    recalc();
+});
+
+const startInput = document.querySelector('input[name="start_date"]');
+const endInput   = document.querySelector('input[name="end_date"]');
+if (startInput && endInput) {
+    const syncDates = () => {
+        if (startInput.value) endInput.min = startInput.value;
+    };
+    startInput.addEventListener('change', syncDates);
+    syncDates();
+}
+</script>
 </body>
 </html>
