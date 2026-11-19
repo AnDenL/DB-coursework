@@ -82,7 +82,11 @@ class DB {
 
     public static function connect(string $user, string $pass): PDO {
         $params = require __DIR__ . '/config.php';
-        $dsn    = "{$params['rdms']}:host={$params['host']};dbname={$params['db']};charset=utf8mb4";
+        $socket = getenv('MYSQL_UNIX_PORT');
+        $dsn    = $socket
+            ? "{$params['rdms']}:unix_socket={$socket};dbname={$params['db']};charset=utf8mb4"
+            : "{$params['rdms']}:host={$params['host']};dbname={$params['db']};charset=utf8mb4";
+
         return new PDO($dsn, $user, $pass, [
             PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,

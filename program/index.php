@@ -3,6 +3,13 @@ declare(strict_types=1);
 
 ini_set('display_errors', '0');
 
+if (PHP_SAPI === 'cli-server') {
+    $staticFile = __DIR__ . (string)parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
+    if (is_file($staticFile)) {
+        return false;
+    }
+}
+
 require_once "db.php";
 if (PHP_SAPI !== 'cli') {
     DB::init_session(900);
